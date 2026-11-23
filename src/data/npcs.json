@@ -1,0 +1,410 @@
+[
+  {
+    "id": "player",
+    "name": "Bạn",
+    "age": 26,
+    "role": "Chủ tiệm",
+    "bio": "Người thừa kế tiệm tạp hóa cũ của gia đình.",
+    "portrait": "assets/characters/portraits/player_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/player_neutral.png",
+      "happy": "assets/characters/portraits/player_happy.png",
+      "sad": "assets/characters/portraits/player_sad.png",
+      "angry": "assets/characters/portraits/player_angry.png",
+      "surprised": "assets/characters/portraits/player_surprised.png",
+      "tired": "assets/characters/portraits/player_tired.png"
+    },
+    "sprite": "assets/characters/player"
+  },
+  {
+    "id": "ba_tu",
+    "name": "Trần Thị Tư",
+    "age": 42,
+    "role": "Người mẹ nghèo",
+    "bio": "Chồng mất sớm, một mình nuôi ba con trong căn nhà tranh cuối xóm.",
+    "portrait": "assets/characters/portraits/ba_tu_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ba_tu_neutral.png",
+      "happy": "assets/characters/portraits/ba_tu_happy.png",
+      "sad": "assets/characters/portraits/ba_tu_sad.png",
+      "angry": "assets/characters/portraits/ba_tu_angry.png",
+      "surprised": "assets/characters/portraits/ba_tu_surprised.png",
+      "tired": "assets/characters/portraits/ba_tu_tired.png"
+    },
+    "sprite": "assets/characters/ba_tu"
+  },
+  {
+    "id": "ong_nam",
+    "name": "Nguyễn Văn Năm",
+    "age": 58,
+    "role": "Nông dân",
+    "bio": "Ruộng thấp, lúa mất mùa, vẫn đem gạo còn lại ra chợ bán.",
+    "portrait": "assets/characters/portraits/ong_nam_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ong_nam_neutral.png",
+      "happy": "assets/characters/portraits/ong_nam_happy.png",
+      "sad": "assets/characters/portraits/ong_nam_sad.png",
+      "angry": "assets/characters/portraits/ong_nam_angry.png",
+      "surprised": "assets/characters/portraits/ong_nam_surprised.png",
+      "tired": "assets/characters/portraits/ong_nam_tired.png"
+    },
+    "sprite": "assets/characters/ong_nam"
+  },
+  {
+    "id": "chi_lan",
+    "name": "Phạm Thị Lan",
+    "age": 29,
+    "role": "Người bán rau",
+    "bio": "Gánh rau từ vườn nhà vào chợ mỗi sáng, tay chẳng khi nào rảnh.",
+    "portrait": "assets/characters/portraits/chi_lan_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/chi_lan_neutral.png",
+      "happy": "assets/characters/portraits/chi_lan_happy.png",
+      "sad": "assets/characters/portraits/chi_lan_sad.png",
+      "angry": "assets/characters/portraits/chi_lan_angry.png",
+      "surprised": "assets/characters/portraits/chi_lan_surprised.png",
+      "tired": "assets/characters/portraits/chi_lan_tired.png"
+    },
+    "sprite": "assets/characters/chi_lan"
+  },
+  {
+    "id": "anh_khoi",
+    "name": "Lê Văn Khởi",
+    "age": 34,
+    "role": "Người kéo xe",
+    "bio": "Kéo xe đưa khách từ bến sông lên chợ, đôi chân chai sạn.",
+    "portrait": "assets/characters/portraits/anh_khoi_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/anh_khoi_neutral.png",
+      "happy": "assets/characters/portraits/anh_khoi_happy.png",
+      "sad": "assets/characters/portraits/anh_khoi_sad.png",
+      "angry": "assets/characters/portraits/anh_khoi_angry.png",
+      "surprised": "assets/characters/portraits/anh_khoi_surprised.png",
+      "tired": "assets/characters/portraits/anh_khoi_tired.png"
+    },
+    "sprite": "assets/characters/anh_khoi"
+  },
+  {
+    "id": "co_hoa",
+    "name": "Trần Thị Hoa",
+    "age": 24,
+    "role": "Người bán cá",
+    "bio": "Con gái nhà anh Vượng, đem cá tươi ra chợ bán giùm cha.",
+    "portrait": "assets/characters/portraits/co_hoa_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/co_hoa_neutral.png",
+      "happy": "assets/characters/portraits/co_hoa_happy.png",
+      "sad": "assets/characters/portraits/co_hoa_sad.png",
+      "angry": "assets/characters/portraits/co_hoa_angry.png",
+      "surprised": "assets/characters/portraits/co_hoa_surprised.png",
+      "tired": "assets/characters/portraits/co_hoa_tired.png"
+    },
+    "sprite": "assets/characters/co_hoa"
+  },
+  {
+    "id": "ong_to",
+    "name": "Phạm Văn Tô",
+    "age": 51,
+    "role": "Thợ mộc",
+    "bio": "Thợ mộc giỏi nhưng không còn tiền mua gỗ, đứa con nhỏ đang ốm.",
+    "portrait": "assets/characters/portraits/ong_to_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ong_to_neutral.png",
+      "happy": "assets/characters/portraits/ong_to_happy.png",
+      "sad": "assets/characters/portraits/ong_to_sad.png",
+      "angry": "assets/characters/portraits/ong_to_angry.png",
+      "surprised": "assets/characters/portraits/ong_to_surprised.png",
+      "tired": "assets/characters/portraits/ong_to_tired.png"
+    },
+    "sprite": "assets/characters/ong_to"
+  },
+  {
+    "id": "ba_cuc",
+    "name": "Bà Cúc",
+    "age": 67,
+    "role": "Người già",
+    "bio": "Ở một mình, ngày nào cũng ghé tiệm mua ít muối và thuốc.",
+    "portrait": "assets/characters/portraits/ba_cuc_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ba_cuc_neutral.png",
+      "happy": "assets/characters/portraits/ba_cuc_happy.png",
+      "sad": "assets/characters/portraits/ba_cuc_sad.png",
+      "angry": "assets/characters/portraits/ba_cuc_angry.png",
+      "surprised": "assets/characters/portraits/ba_cuc_surprised.png",
+      "tired": "assets/characters/portraits/ba_cuc_tired.png"
+    },
+    "sprite": "assets/characters/ba_cuc"
+  },
+  {
+    "id": "anh_phuc",
+    "name": "Đoàn Văn Phúc",
+    "age": 28,
+    "role": "Người khuân vác",
+    "bio": "Vai rộng, sức khỏe, gánh được hai bao gạo một lúc.",
+    "portrait": "assets/characters/portraits/anh_phuc_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/anh_phuc_neutral.png",
+      "happy": "assets/characters/portraits/anh_phuc_happy.png",
+      "sad": "assets/characters/portraits/anh_phuc_sad.png",
+      "angry": "assets/characters/portraits/anh_phuc_angry.png",
+      "surprised": "assets/characters/portraits/anh_phuc_surprised.png",
+      "tired": "assets/characters/portraits/anh_phuc_tired.png"
+    },
+    "sprite": "assets/characters/anh_phuc"
+  },
+  {
+    "id": "co_diep",
+    "name": "Điệp",
+    "age": 31,
+    "role": "Người buôn nhỏ",
+    "bio": "Đi chợ này chợ nọ, mua bán từng món nhỏ, belonged nowhere.",
+    "portrait": "assets/characters/portraits/co_diep_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/co_diep_neutral.png",
+      "happy": "assets/characters/portraits/co_diep_happy.png",
+      "sad": "assets/characters/portraits/co_diep_sad.png",
+      "angry": "assets/characters/portraits/co_diep_angry.png",
+      "surprised": "assets/characters/portraits/co_diep_surprised.png",
+      "tired": "assets/characters/portraits/co_diep_tired.png"
+    },
+    "sprite": "assets/characters/co_diep"
+  },
+  {
+    "id": "ong_giao_minh",
+    "name": "Giáo Minh",
+    "age": 45,
+    "role": "Người trí thức",
+    "bio": "Thầy giáo trường làng, hay nghĩ về những thay đổi sắp đến.",
+    "portrait": "assets/characters/portraits/ong_giao_minh_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ong_giao_minh_neutral.png",
+      "happy": "assets/characters/portraits/ong_giao_minh_happy.png",
+      "sad": "assets/characters/portraits/ong_giao_minh_sad.png",
+      "angry": "assets/characters/portraits/ong_giao_minh_angry.png",
+      "surprised": "assets/characters/portraits/ong_giao_minh_surprised.png",
+      "tired": "assets/characters/portraits/ong_giao_minh_tired.png"
+    },
+    "sprite": "assets/characters/ong_giao_minh"
+  },
+  {
+    "id": "ba_hau",
+    "name": "Bà Hậu",
+    "age": 50,
+    "role": "Nhà buôn vải",
+    "bio": "Cửa hiệu vải lớn nhất chợ, tính tình sắc sảo, ít khi nhượng bộ.",
+    "portrait": "assets/characters/portraits/ba_hau_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ba_hau_neutral.png",
+      "happy": "assets/characters/portraits/ba_hau_happy.png",
+      "sad": "assets/characters/portraits/ba_hau_sad.png",
+      "angry": "assets/characters/portraits/ba_hau_angry.png",
+      "surprised": "assets/characters/portraits/ba_hau_surprised.png",
+      "tired": "assets/characters/portraits/ba_hau_tired.png"
+    },
+    "sprite": "assets/characters/ba_hau"
+  },
+  {
+    "id": "anh_vuong",
+    "name": "Vượng",
+    "age": 37,
+    "role": "Người đánh cá",
+    "bio": "Sống trên thuyền, nhìn nước biết ngày mưa hay nắng.",
+    "portrait": "assets/characters/portraits/anh_vuong_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/anh_vuong_neutral.png",
+      "happy": "assets/characters/portraits/anh_vuong_happy.png",
+      "sad": "assets/characters/portraits/anh_vuong_sad.png",
+      "angry": "assets/characters/portraits/anh_vuong_angry.png",
+      "surprised": "assets/characters/portraits/anh_vuong_surprised.png",
+      "tired": "assets/characters/portraits/anh_vuong_tired.png"
+    },
+    "sprite": "assets/characters/anh_vuong"
+  },
+  {
+    "id": "co_man",
+    "name": "Mận",
+    "age": 26,
+    "role": "Người mẹ trẻ",
+    "bio": "Chồng đi phu, ở nhà với đứa con chưa đầy tuổi.",
+    "portrait": "assets/characters/portraits/co_man_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/co_man_neutral.png",
+      "happy": "assets/characters/portraits/co_man_happy.png",
+      "sad": "assets/characters/portraits/co_man_sad.png",
+      "angry": "assets/characters/portraits/co_man_angry.png",
+      "surprised": "assets/characters/portraits/co_man_surprised.png",
+      "tired": "assets/characters/portraits/co_man_tired.png"
+    },
+    "sprite": "assets/characters/co_man"
+  },
+  {
+    "id": "bac_hung",
+    "name": "Hùng",
+    "age": 44,
+    "role": "Thợ rèn",
+    "bio": "Thợ rèn lò bên bến sông, tay đen sạm than.",
+    "portrait": "assets/characters/portraits/bac_hung_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/bac_hung_neutral.png",
+      "happy": "assets/characters/portraits/bac_hung_happy.png",
+      "sad": "assets/characters/portraits/bac_hung_sad.png",
+      "angry": "assets/characters/portraits/bac_hung_angry.png",
+      "surprised": "assets/characters/portraits/bac_hung_surprised.png",
+      "tired": "assets/characters/portraits/bac_hung_tired.png"
+    },
+    "sprite": "assets/characters/bac_hung"
+  },
+  {
+    "id": "chi_sen",
+    "name": "Sen",
+    "age": 35,
+    "role": "Người bán chè",
+    "bio": "Quán chè nhỏ bên chợ, ai buồn cũng ra đó ngồi.",
+    "portrait": "assets/characters/portraits/chi_sen_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/chi_sen_neutral.png",
+      "happy": "assets/characters/portraits/chi_sen_happy.png",
+      "sad": "assets/characters/portraits/chi_sen_sad.png",
+      "angry": "assets/characters/portraits/chi_sen_angry.png",
+      "surprised": "assets/characters/portraits/chi_sen_surprised.png",
+      "tired": "assets/characters/portraits/chi_sen_tired.png"
+    },
+    "sprite": "assets/characters/chi_sen"
+  },
+  {
+    "id": "ong_ca",
+    "name": "Ông Cả",
+    "age": 62,
+    "role": "Chủ chợ",
+    "bio": "Người giữ trật tự phiên chợ, biết mọi tin tức buôn bán.",
+    "portrait": "assets/characters/portraits/ong_ca_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ong_ca_neutral.png",
+      "happy": "assets/characters/portraits/ong_ca_happy.png",
+      "sad": "assets/characters/portraits/ong_ca_sad.png",
+      "angry": "assets/characters/portraits/ong_ca_angry.png",
+      "surprised": "assets/characters/portraits/ong_ca_surprised.png",
+      "tired": "assets/characters/portraits/ong_ca_tired.png"
+    },
+    "sprite": "assets/characters/ong_ca"
+  },
+  {
+    "id": "co_tuyet",
+    "name": "Tuyết",
+    "age": 27,
+    "role": "Người bán thuốc",
+    "bio": "Con gái nhà thuốc bắc, biết vài bài thuốc nam.",
+    "portrait": "assets/characters/portraits/co_tuyet_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/co_tuyet_neutral.png",
+      "happy": "assets/characters/portraits/co_tuyet_happy.png",
+      "sad": "assets/characters/portraits/co_tuyet_sad.png",
+      "angry": "assets/characters/portraits/co_tuyet_angry.png",
+      "surprised": "assets/characters/portraits/co_tuyet_surprised.png",
+      "tired": "assets/characters/portraits/co_tuyet_tired.png"
+    },
+    "sprite": "assets/characters/co_tuyet"
+  },
+  {
+    "id": "anh_tam",
+    "name": "Tâm",
+    "age": 30,
+    "role": "Người giao hàng",
+    "bio": "Đi đường xa, đem thư và hàng hóa giữa các vùng.",
+    "portrait": "assets/characters/portraits/anh_tam_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/anh_tam_neutral.png",
+      "happy": "assets/characters/portraits/anh_tam_happy.png",
+      "sad": "assets/characters/portraits/anh_tam_sad.png",
+      "angry": "assets/characters/portraits/anh_tam_angry.png",
+      "surprised": "assets/characters/portraits/anh_tam_surprised.png",
+      "tired": "assets/characters/portraits/anh_tam_tired.png"
+    },
+    "sprite": "assets/characters/anh_tam"
+  },
+  {
+    "id": "ba_giao",
+    "name": "Bà Giáo",
+    "age": 41,
+    "role": "Vợ người trí thức",
+    "bio": "Lo việc nhà, hay sang tiệm hỏi tin tức ngoài kia.",
+    "portrait": "assets/characters/portraits/ba_giao_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ba_giao_neutral.png",
+      "happy": "assets/characters/portraits/ba_giao_happy.png",
+      "sad": "assets/characters/portraits/ba_giao_sad.png",
+      "angry": "assets/characters/portraits/ba_giao_angry.png",
+      "surprised": "assets/characters/portraits/ba_giao_surprised.png",
+      "tired": "assets/characters/portraits/ba_giao_tired.png"
+    },
+    "sprite": "assets/characters/ba_giao"
+  },
+  {
+    "id": "cau_ti",
+    "name": "Tí",
+    "age": 9,
+    "role": "Trẻ em",
+    "bio": "Thằng bé chạy vặt chợ, mắt tinh như sóc.",
+    "portrait": "assets/characters/portraits/cau_ti_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/cau_ti_neutral.png",
+      "happy": "assets/characters/portraits/cau_ti_happy.png",
+      "sad": "assets/characters/portraits/cau_ti_sad.png",
+      "angry": "assets/characters/portraits/cau_ti_angry.png",
+      "surprised": "assets/characters/portraits/cau_ti_surprised.png",
+      "tired": "assets/characters/portraits/cau_ti_tired.png"
+    },
+    "sprite": "assets/characters/cau_ti"
+  },
+  {
+    "id": "ong_chin",
+    "name": "Ông Chín",
+    "age": 55,
+    "role": "Người buôn hàng hiếm",
+    "bio": "Ít khi lộ diện, nhưng hễ có hàng hiếm là lại thấy ông.",
+    "portrait": "assets/characters/portraits/ong_chin_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ong_chin_neutral.png",
+      "happy": "assets/characters/portraits/ong_chin_happy.png",
+      "sad": "assets/characters/portraits/ong_chin_sad.png",
+      "angry": "assets/characters/portraits/ong_chin_angry.png",
+      "surprised": "assets/characters/portraits/ong_chin_surprised.png",
+      "tired": "assets/characters/portraits/ong_chin_tired.png"
+    },
+    "sprite": "assets/characters/ong_chin"
+  },
+  {
+    "id": "ba_tam",
+    "name": "Bà Tám",
+    "age": 56,
+    "role": "Người bán thuốc bắc",
+    "bio": "Nhà thuốc bắc bốn đời, biết tên từng vị thuốc.",
+    "portrait": "assets/characters/portraits/ba_tam_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/ba_tam_neutral.png",
+      "happy": "assets/characters/portraits/ba_tam_happy.png",
+      "sad": "assets/characters/portraits/ba_tam_sad.png",
+      "angry": "assets/characters/portraits/ba_tam_angry.png",
+      "surprised": "assets/characters/portraits/ba_tam_surprised.png",
+      "tired": "assets/characters/portraits/ba_tam_tired.png"
+    },
+    "sprite": "assets/characters/ba_tam"
+  },
+  {
+    "id": "co_mai",
+    "name": "Mai",
+    "age": 20,
+    "role": "Người phụ giúp",
+    "bio": "Cô gái láng giềng, chịu khó, mong được học việc.",
+    "portrait": "assets/characters/portraits/co_mai_neutral.png",
+    "portraits": {
+      "neutral": "assets/characters/portraits/co_mai_neutral.png",
+      "happy": "assets/characters/portraits/co_mai_happy.png",
+      "sad": "assets/characters/portraits/co_mai_sad.png",
+      "angry": "assets/characters/portraits/co_mai_angry.png",
+      "surprised": "assets/characters/portraits/co_mai_surprised.png",
+      "tired": "assets/characters/portraits/co_mai_tired.png"
+    },
+    "sprite": "assets/characters/co_mai"
+  }
+]

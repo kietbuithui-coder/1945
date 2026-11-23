@@ -1164,3 +1164,22 @@ input[type='range'] { width: 200px; accent-color: var(--gold); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
 }
+
+
+/* ---------------------------------------------------------- rotate hint -- */
+.rotate-hint {
+  display: none;
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 8px 16px;
+  border: 1px solid var(--wood-4);
+  background: rgba(24, 15, 8, 0.94);
+  color: var(--paper-2);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rotate-hint.show { display: block; }

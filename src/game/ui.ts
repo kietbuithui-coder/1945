@@ -47,6 +47,7 @@ export class UI {
   /** True while a modal or panel covers the shop — the clock is frozen then, so
    *  the player can read and rearrange stock without losing customers. */
   modalOpen = false;
+  private lastFocus: HTMLElement | null = null;
   currentEvent: EventDef | null = null;
   private confirmCb: (() => void) | null = null;
   private dragUid: number | null = null;
@@ -63,7 +64,7 @@ export class UI {
       <div class="help-hint" id="hint"></div>
       <div class="pause-overlay" id="pause-overlay"><div class="pause-card"><div class="t">TẠM DỪNG</div><div class="s">Nhấn <b>Space</b> để tiếp tục · <b>1/2/3</b> đổi tốc độ</div></div></div>
       <div id="modal-root"></div>
-      <div class="toasts" id="toasts"></div>
+      <div class="toasts" id="toasts" aria-live="polite" role="status"></div>
     `;
     this.bind();
     this.refresh();
@@ -87,6 +88,16 @@ export class UI {
         return;
       }
       this.handleAction(action, { ...t.dataset } as Record<string, string>);
+    }, true);
+    // keyboard users can tab to a control and press Enter; Space stays reserved
+    // for pausing the clock
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const t = (e.target as HTMLElement).closest?.('[data-action]') as HTMLElement | null;
+      if (!t || !this.root.contains(t) || t.dataset.action === 'modal-surface' || t.dataset.action === 'backdrop') return;
+      if (t.tagName === 'BUTTON' || t.tagName === 'INPUT') return; // native controls already do this
+      e.preventDefault();
+      this.handleAction(t.dataset.action!, { ...t.dataset } as Record<string, string>);
     }, true);
     this.root.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
@@ -467,7 +478,7 @@ export class UI {
     const due = s.debts.filter((d) => d.status === 'active' && d.dueDay <= s.player.day).length;
     const deliveries = s.deliveries.filter((d) => d.status === 'transit').length;
     const btn = (panel: string, icon: string, tip: string, badge = 0) => `
-      <div class="icon-btn" data-action="open-panel" data-panel="${panel}" title="${tip}">
+      <div class="icon-btn" role="button" tabindex="0" data-action="open-panel" data-panel="${panel}" title="${tip}" aria-label="${tip}">
         <img src="/assets/ui/icons/${icon}.png" alt="${tip}">
         ${badge ? `<span class="badge">${badge}</span>` : ''}
         <span class="tip">${tip}</span>
@@ -728,15 +739,21 @@ export class UI {
   // --------------------------------------------------------------- modals --
   openModal(html: string, cls = '', staticBackdrop = false) {
     this.modalOpen = true;
+    this.lastFocus = document.activeElement as HTMLElement | null;
     const root = document.getElementById('modal-root')!;
     // Re-rendering a panel (filter chip, markup +, sort...) must not throw the
     // player back to the top of a long list: carry the scroll position over.
     const prevBody = root.querySelector('.modal .body') as HTMLElement | null;
     const keepScroll = prevBody ? prevBody.scrollTop : 0;
     root.innerHTML = `<div class="backdrop" data-action="backdrop" ${staticBackdrop ? 'data-static="1"' : ''}>
-      <div class="modal panel-wood frame-inner ${cls}" data-action="modal-surface">${html}</div>
+      <div class="modal panel-wood frame-inner ${cls}" data-action="modal-surface" role="dialog" aria-modal="true" tabindex="-1">${html}</div>
     </div>`;
     root.style.display = 'block';
+    // move focus into the dialog so Esc / Enter work without hunting with the mouse
+    if (this.lastFocus === null || !root.contains(this.lastFocus)) {
+      const focusable = root.querySelector<HTMLElement>('button:not([disabled]), input, [tabindex="-1"]');
+      focusable?.focus({ preventScroll: true });
+    }
     if (keepScroll > 0) {
       const body = root.querySelector('.modal .body') as HTMLElement | null;
       if (body) body.scrollTop = keepScroll;
@@ -748,6 +765,8 @@ export class UI {
     if (root) { root.innerHTML = ''; root.style.display = 'none'; }
     this.activePanel = null;
     this.modalOpen = false;
+    this.lastFocus?.focus?.({ preventScroll: true });
+    this.lastFocus = null;
     // The title screen is rendered into the same container as panels: closing a
     // panel from the title must bring the title back, not leave a black screen.
     if (this.game.screen === 'title') { this.showTitle(); return; }
@@ -903,6 +922,8 @@ export class UI {
     const root = document.getElementById('modal-root')!;
     this.activePanel = null;
     this.modalOpen = false;
+    this.lastFocus?.focus?.({ preventScroll: true });
+    this.lastFocus = null;
     root.style.display = 'block';
     const auto = this.game.peekSlot(0);
     root.innerHTML = `<div class="title-screen">

@@ -2,6 +2,7 @@
 import { World, newGame, fmtMoney, SAVE_PREFIX } from './systems';
 import { Scene, preload, splitAssetUrls } from './scene';
 import { BUILD } from './version';
+import { weatherLabel } from './systems';
 import { UI } from './ui';
 import { audio } from './audio';
 import { eventById, EVENTS, MAIN_STORY_IDS, ARC_IDS } from './events';
@@ -258,9 +259,17 @@ export class Game {
   beginMorning() {
     this.ui.closeModal();
     this.ui.refresh();
+    const s = this.world.state;
     // snapshot at the top of the day: quitting mid-day still leaves a Continue
-    if (this.world.state.settings.autosave) this.world.save(0);
-    this.ui.toast(`Ngày ${this.world.state.player.day} · ${this.world.state.weather.today === 'mua_to' ? 'Mưa lớn' : 'Hãy mở cửa khi sẵn sàng'}`, 'info');
+    if (s.settings.autosave) this.world.save(0);
+    // one line of planning info: how busy today is expected to be, and why
+    const expected = s.dayPlan.customers.length;
+    const weather = weatherLabel(s.weather.today);
+    const note = s.weather.today === 'mua_to' ? 'mưa lớn — khách vắng, đường lầy'
+      : s.weather.today === 'mua' ? 'trời mưa — khách ít hơn'
+      : s.weather.today === 'nong' ? 'trời nắng — hàng mau hỏng'
+      : 'thời tiết thuận';
+    this.ui.toast(`Ngày ${s.player.day} · ${weather} (${note}) · dự kiến ${expected} lượt khách. Mở cửa khi sẵn sàng.`, 'info');
   }
 
   loadSlot(slot: number) {

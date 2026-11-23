@@ -585,6 +585,28 @@ async function main() {
     check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
   }
 
+  console.log('\n— accessibility —');
+  {
+    check(document.getElementById('toasts')?.getAttribute('aria-live') === 'polite', 'toasts are announced to screen readers');
+    const dock = document.querySelector('#dock .icon-btn') as HTMLElement | null;
+    check(!!dock && dock.getAttribute('role') === 'button' && dock.tabIndex === 0, 'dock entries are keyboard focusable buttons');
+    ui.openPanel('inventory');
+    await sleep(10);
+    const modal = document.querySelector('.modal') as HTMLElement | null;
+    check(!!modal && modal.getAttribute('role') === 'dialog' && modal.getAttribute('aria-modal') === 'true', 'panels are announced as modal dialogs');
+    check(!!document.activeElement && !!modal?.contains(document.activeElement), 'focus moves into the dialog');
+    // Enter on a focused dock button activates it
+    ui.closeModal();
+    await sleep(5);
+    const target = document.querySelector('#dock .icon-btn[data-panel="prices"]') as HTMLElement | null;
+    target?.focus();
+    target?.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(10);
+    check((document.querySelector('.modal h2')?.textContent ?? '').includes('Bảng giá'), 'Enter on a focused dock button opens the panel');
+    click('[data-action="close-modal"]');
+    await sleep(5);
+  }
+
   console.log('\n— settings: reduce motion + data reset —');
   {
     ui.openPanel('settings');

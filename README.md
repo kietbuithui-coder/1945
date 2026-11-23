@@ -91,6 +91,8 @@ Autosave sau mỗi ngày và khi tải. Lưu đủ: vị trí, kho, kệ, NPC, n
 
 - `npm run sim` — chạy 30 ngày ở 3 độ khó, assert: tiền không âm, không NaN, đến ngày 30,
   giá hợp lý, tồn kho nhà cung cấp có giới hạn, save/load giữ nguyên trạng thái.
+  Sim dùng seed cố định (`SIM_SEED`) nên kết quả balances lặp lại y hệt mỗi lần chạy;
+  còn kiểm tra thêm hai game cùng seed cho cùng một thế giới.
 - `npx tsx tools/dom-test.ts` — boots UI thật bằng jsdom: title → new game → intro → 12 panel →
   kéo thả/tách chồng → mua hàng → phục vụ khách → 6 nút mặc cả → nâng cấp → đi map → kết thúc.
 - `npm run build` — `tsc --noEmit` + Vite.

@@ -73,18 +73,26 @@ export class Surface {
     return x >= 0 && y >= 0 && x < this.w && y < this.h;
   }
 
+  // Every primitive floors its coordinates: a fractional index into a typed
+  // array is silently ignored, which used to drop scaled shapes entirely.
   get(x, y) {
+    x = Math.floor(x); y = Math.floor(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return 0;
     return this.data[y * this.w + x];
   }
 
   set(x, y, c) {
+    x = Math.floor(x); y = Math.floor(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
-    this.data[y * this.w + x] = c;
+    // accept '#rrggbb' strings as well as packed ints: assigning a string to a
+    // Uint32Array silently yields 0 (transparent), which used to eat detail work
+    this.data[y * this.w + x] = typeof c === 'number' ? c : hex(c);
   }
 
   blend(x, y, c) {
+    x = Math.floor(x); y = Math.floor(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    if (typeof c !== 'number') c = hex(c);
     const i = y * this.w + x;
     const dst = this.data[i];
     const sa = (c >>> 24) & 255;
@@ -106,8 +114,8 @@ export class Surface {
 
   rect(x, y, w, h, c) {
     const col = hex(c);
-    const x0 = Math.max(0, x), y0 = Math.max(0, y);
-    const x1 = Math.min(this.w, x + w), y1 = Math.min(this.h, y + h);
+    const x0 = Math.max(0, Math.floor(x)), y0 = Math.max(0, Math.floor(y));
+    const x1 = Math.min(this.w, Math.ceil(x + w)), y1 = Math.min(this.h, Math.ceil(y + h));
     for (let yy = y0; yy < y1; yy++) {
       const row = yy * this.w;
       for (let xx = x0; xx < x1; xx++) this.data[row + xx] = col;
@@ -115,15 +123,16 @@ export class Surface {
   }
 
   blendRect(x, y, w, h, c) {
-    for (let yy = Math.max(0, y); yy < Math.min(this.h, y + h); yy++) {
-      for (let xx = Math.max(0, x); xx < Math.min(this.w, x + w); xx++) this.blend(xx, yy, hex(c));
+    const col = hex(c);
+    for (let yy = Math.max(0, Math.floor(y)); yy < Math.min(this.h, Math.ceil(y + h)); yy++) {
+      for (let xx = Math.max(0, Math.floor(x)); xx < Math.min(this.w, Math.ceil(x + w)); xx++) this.blend(xx, yy, col);
     }
   }
 
   frame(x, y, w, h, c) {
     const col = hex(c);
-    const x0 = Math.max(0, x), y0 = Math.max(0, y);
-    const x1 = Math.min(this.w, x + w) - 1, y1 = Math.min(this.h, y + h) - 1;
+    const x0 = Math.max(0, Math.floor(x)), y0 = Math.max(0, Math.floor(y));
+    const x1 = Math.min(this.w, Math.ceil(x + w)) - 1, y1 = Math.min(this.h, Math.ceil(y + h)) - 1;
     for (let xx = x0; xx <= x1; xx++) { this.set(xx, y, col); this.set(xx, y + h - 1, col); }
     for (let yy = y0; yy <= y1; yy++) { this.set(x, yy, col); this.set(x + w - 1, yy, col); }
   }
@@ -132,16 +141,19 @@ export class Surface {
   // exactly like set(), a translucent one overlays instead of cutting a hole.
   hline(x, y, w, c) {
     const col = hex(c);
-    for (let xx = Math.max(0, x); xx < Math.min(this.w, x + w); xx++) this.blend(xx, y, col);
+    y = Math.floor(y);
+    for (let xx = Math.max(0, Math.floor(x)); xx < Math.min(this.w, Math.ceil(x + w)); xx++) this.blend(xx, y, col);
   }
 
   vline(x, y, h, c) {
     const col = hex(c);
-    for (let yy = Math.max(0, y); yy < Math.min(this.h, y + h); yy++) this.blend(x, yy, col);
+    x = Math.floor(x);
+    for (let yy = Math.max(0, Math.floor(y)); yy < Math.min(this.h, Math.ceil(y + h)); yy++) this.blend(x, yy, col);
   }
 
   line(x0, y0, x1, y1, c) {
     const col = hex(c);
+    x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
     let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     let dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     let err = dx + dy;
@@ -156,6 +168,8 @@ export class Surface {
 
   ellipse(cx, cy, rx, ry, c) {
     const col = hex(c);
+    cx = Math.floor(cx); cy = Math.floor(cy);
+    rx = Math.max(1, Math.round(rx)); ry = Math.max(1, Math.round(ry));
     if (rx <= 0 || ry <= 0) return;
     for (let y = -ry; y <= ry; y++) {
       const span = Math.floor(rx * Math.sqrt(1 - (y * y) / (ry * ry)));
@@ -166,6 +180,8 @@ export class Surface {
   /** ellipse() composited with source alpha (for glows and haze over a plate). */
   blendEllipse(cx, cy, rx, ry, c) {
     const col = hex(c);
+    cx = Math.floor(cx); cy = Math.floor(cy);
+    rx = Math.max(1, Math.round(rx)); ry = Math.max(1, Math.round(ry));
     if (rx <= 0 || ry <= 0) return;
     for (let y = -ry; y <= ry; y++) {
       const span = Math.floor(rx * Math.sqrt(1 - (y * y) / (ry * ry)));

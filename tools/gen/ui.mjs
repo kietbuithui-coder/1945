@@ -37,7 +37,11 @@ function woodPanel(w = 96, h = 96, dark = false) {
   }
   // subtle inner vignette
   for (let i = 0; i < 4; i++) {
-    s.frame(6 + i, 6 + i, w - 12 - i * 2, h - 12 - i * 2, withAlpha(hex(darkc), 10 + i * 6));
+    const inset = 6 + i, ww = w - 12 - i * 2, hh = h - 12 - i * 2;
+    s.hline(inset, inset, ww, withAlpha(hex(darkc), 10 + i * 6));
+    s.hline(inset, inset + hh - 1, ww, withAlpha(hex(darkc), 10 + i * 6));
+    s.vline(inset, inset, hh, withAlpha(hex(darkc), 10 + i * 6));
+    s.vline(inset + ww - 1, inset, hh, withAlpha(hex(darkc), 10 + i * 6));
   }
   return s;
 }
@@ -65,7 +69,7 @@ function paperPanel(w = 96, h = 96) {
   // stains
   for (let i = 0; i < 3; i++) {
     const x = Math.floor(rng() * w), y = Math.floor(rng() * h);
-    s.ellipse(x, y, 4 + Math.floor(rng() * 8), 3 + Math.floor(rng() * 6), withAlpha(hex('#b9a273'), 30));
+    s.blendEllipse(x, y, 4 + Math.floor(rng() * 8), 3 + Math.floor(rng() * 6), withAlpha(hex('#b9a273'), 30));
   }
   // stitched border
   for (let x = 4; x < w - 4; x += 5) {
@@ -117,11 +121,14 @@ function slot(size = 48, state = 'normal') {
   s.vline(size - 2, 1, size - 2, sh(base, 0.65));
   s.frame(0, 0, size, size, '#241711');
   // inner shadow
-  s.frame(3, 3, size - 6, size - 6, withAlpha(hex('#120c08'), 60));
+  s.hline(3, 3, size - 6, withAlpha(hex('#120c08'), 60));
+  s.hline(3, size - 4, size - 6, withAlpha(hex('#120c08'), 60));
+  s.vline(3, 3, size - 6, withAlpha(hex('#120c08'), 60));
+  s.vline(size - 4, 3, size - 6, withAlpha(hex('#120c08'), 60));
   if (state === 'locked') {
     for (let i = 0; i < size - 8; i += 3) {
-      s.set(4 + i, 4, withAlpha(hex('#8a8278'), 90));
-      s.set(4 + i, size - 5, withAlpha(hex('#8a8278'), 90));
+      s.blend(4 + i, 4, withAlpha(hex('#8a8278'), 90));
+      s.blend(4 + i, size - 5, withAlpha(hex('#8a8278'), 90));
     }
     s.rect(6, 6, 3, 3, '#8a8278');
   }

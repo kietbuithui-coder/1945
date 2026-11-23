@@ -341,8 +341,8 @@ export function market(mode = 'day') {
     s.ellipse(x + 10, 210 - Math.floor(rng() * 20), 18, 12, '#4c5a32');
   }
   // ground
-  s.rect(0, 220, 640, 140, dusk ? '#4a3a2a' : '#5a4a38');
-  for (let i = 0; i < 400; i++) s.set(Math.floor(rng() * 640), 220 + Math.floor(rng() * 140), sh('#5a4a38', 0.75 + rng() * 0.5));
+  s.rect(0, 220, 640, 140, dusk ? '#4a3a2a' : '#655441');
+  for (let i = 0; i < 400; i++) s.set(Math.floor(rng() * 640), 220 + Math.floor(rng() * 140), sh('#655441', 0.78 + rng() * 0.46));
   // stalls
   const stall = (x, y, w, color) => {
     // poles
@@ -376,15 +376,19 @@ export function market(mode = 'day') {
     s.line(x, 160, x - 8, 170, '#8a6a44');
     s.ellipse(x - 10, 174, 5, 4, '#b8945a');
   }
-  // crowd silhouettes
+  // crowd silhouettes — backlit by the overcast sky, so they read as dark shapes
+  // against the lighter dirt; a warm rim on the hat separates them from the stalls
   const person = (x, y, shirt, scale = 1) => {
-    s.ellipse(x, y - 34 * scale, 5 * scale, 6 * scale, '#8a5a36');
+    s.ellipse(x, y - 34 * scale, 5 * scale, 6 * scale, '#7a4e30');
     s.rect(x - 7 * scale, y - 29 * scale, 14 * scale, 22 * scale, shirt);
-    s.rect(x - 5 * scale, y - 7 * scale, 4 * scale, 8 * scale, '#2a2420');
-    s.rect(x + 2 * scale, y - 7 * scale, 4 * scale, 8 * scale, '#2a2420');
-    s.poly([[x, y - 42 * scale], [x - 10 * scale, y - 33 * scale], [x + 10 * scale, y - 33 * scale]], '#c9a86a');
+    s.vline(x - 7 * scale, y - 29 * scale, 22 * scale, '#241a14');          // shadowed edge
+    s.rect(x - 5 * scale, y - 7 * scale, 4 * scale, 8 * scale, '#241a14');
+    s.rect(x + 2 * scale, y - 7 * scale, 4 * scale, 8 * scale, '#241a14');
+    s.poly([[x, y - 42 * scale], [x - 10 * scale, y - 33 * scale], [x + 10 * scale, y - 33 * scale]], '#d8b878');
+    s.hline(x - 9 * scale, y - 33 * scale, 18 * scale, '#8a6a44');          // hat brim
+    s.ellipse(x, y + 1, 9 * scale, 3 * scale, withAlpha(hex('#241a14'), 90)); // contact shadow
   };
-  const colors = ['#5a4a3a', '#6a5a44', '#4a4a3a', '#6a4a44', '#5a6a5a', '#7a6a52'];
+  const colors = ['#3a2c22', '#463427', '#2f2721', '#4c3628', '#3b4033', '#52402c'];
   const positions = [[90, 290], [150, 310], [230, 295], [290, 320], [370, 300], [430, 315], [520, 290], [580, 310], [60, 330], [330, 340], [470, 340]];
   positions.forEach((p, i) => person(p[0], p[1], colors[i % colors.length], 0.9 + (i % 3) * 0.12));
   // smoke from food stall

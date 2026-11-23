@@ -35,7 +35,7 @@ function riceSack(s, seed, body, grain, label = null) {
     const x = 6 + Math.floor(rng() * 20), y = 8 + Math.floor(rng() * 20);
     s.set(x, y, rng() < 0.5 ? mul(hex(grain), 0.86) : mul(hex(grain), 1.12));
   }
-  s.rect(8, 12, 16, 8, withAlpha(hex(label || '#8a6a44'), 220));
+  s.rect(8, 12, 16, 8, hex(label || '#8a6a44'));
   s.hline(9, 13, 14, mul(hex(label || '#8a6a44'), 1.2));
   s.hline(9, 16, 10, mul(hex(label || '#8a6a44'), 0.8));
 }
@@ -721,7 +721,7 @@ function drawItem(def) {
     case 'iou_note': {
       paperSheet(s, 4, 5, 24, 22, '#d8c9a8', null, rng);
       for (let i = 0; i < 3; i++) s.hline(7, 9 + i * 4, 14, '#6a5a44');
-      s.ellipse(22, 21, 4, 4, withAlpha(hex(C.red), 180));
+      s.blendEllipse(22, 21, 4, 4, withAlpha(hex(C.red), 180));
       break;
     }
     case 'shipping_paper': {

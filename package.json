@@ -10,9 +10,10 @@
     "preview": "vite preview --host 0.0.0.0",
     "assets": "node tools/generate.mjs",
     "sim": "tsx tools/sim.ts",
-    "test": "npm run sim && tsx tools/dom-test.ts",
+    "test": "npm run sim && tsx tools/dom-test.ts && npm run fuzz",
     "dom-test": "tsx tools/dom-test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fuzz": "tsx tools/fuzz.ts 1945"
   },
   "devDependencies": {
     "@fontsource/be-vietnam-pro": "^5.2.5",

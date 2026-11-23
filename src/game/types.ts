@@ -322,7 +322,7 @@ export interface GameState {
   totals: Totals;
   day: DayStats;
   story: { chapter: number; flags: Record<string, number | boolean | string> };
-  settings: { sfx: number; music: number; autosave: boolean; hints: boolean };
+  settings: { sfx: number; music: number; autosave: boolean; hints: boolean; reduceMotion: boolean };
   rngSeed: number;
   ending?: { id: string; title: string; text: string };
   dayPlan: { customers: PlannedCustomer[]; eventIds: string[]; news: string[] };

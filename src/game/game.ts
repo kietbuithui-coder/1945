@@ -2,6 +2,7 @@
 import { World, newGame, fmtMoney, SAVE_PREFIX } from './systems';
 import { Scene, preload, splitAssetUrls } from './scene';
 import { BUILD } from './version';
+import { weatherLabel } from './systems';
 import { UI } from './ui';
 import { audio } from './audio';
 import { eventById, EVENTS, MAIN_STORY_IDS, ARC_IDS } from './events';
@@ -44,6 +45,9 @@ export class Game {
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       if (this.typing()) return;
       const s = this.world.state;
+      // chapter / event / report / ending cards are story-critical: while one is
+      // up, only Escape is meaningful, and it is ignored for static cards anyway
+      if (document.querySelector('.backdrop[data-static]') && e.key !== 'Escape') return;
       if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
       switch (e.key) {
         case ' ':
@@ -59,7 +63,12 @@ export class Game {
         case 'p': case 'P': this.ui.openPanel('prices'); break;
         case 'm': case 'M': this.ui.openPanel('map'); break;
         case 'o': case 'O': if (s.time.phase === 'morning') this.openShop(); break;
-        case 'e': case 'E': if (s.time.phase === 'open') this.endDay(); break;
+        case 'e': case 'E': if (s.time.phase === 'open') this.requestEndDay(); break;
+        case 'h': case 'H': this.ui.openPanel('help'); break;
+        case 'q': case 'Q': this.ui.openPanel('quests'); break;
+        case 'f': case 'F': this.ui.openPanel('family'); break;
+        case 'l': case 'L': this.ui.openPanel('save'); break;
+        case 'c': case 'C': this.ui.openPanel('shop'); break;
         case 'Escape':
           // story-critical cards (chapter, report, event, ending) must be answered
           if (!document.querySelector('.backdrop[data-static]')) this.ui.closeModal();
@@ -128,22 +137,49 @@ export class Game {
   private loop = (t: number) => {
     const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000));
     this.last = t;
-    if (this.screen === 'playing') {
-      const before = this.world.state.time.phase;
-      this.world.advanceTime(dt);
-      if (before === 'open' && this.world.state.time.phase === 'report') {
-        // the clock ran out on its own: show the ledger instead of stalling
-        this.ui.showReport();
+    try {
+      if (this.screen === 'playing') {
+        // Reading a panel must not cost the player customers: the clock only runs
+        // while the shop is actually in view.
+        const blocked = this.ui.modalOpen || this.ui.activePanel !== null;
+        if (!blocked) {
+          const before = this.world.state.time.phase;
+          this.world.advanceTime(dt);
+          if (before === 'open' && this.world.state.time.phase === 'report') {
+            // the clock ran out on its own: show the ledger instead of stalling
+            this.ui.showReport();
+          }
+          if (this.world.state.time.phase === 'open' && !this.world.state.time.paused) {
+            this.world.state.playSeconds += dt;
+          }
+          this.warnBeforeClosing();
+        }
       }
-      if (this.world.state.time.phase === 'open' && !this.world.state.time.paused) {
-        this.world.state.playSeconds += dt;
+      this.scene.draw(this.world, dt);
+      this.ui.tick();
+      this.updateAmbience();
+    } catch (err) {
+      // a broken frame must not take the whole game down with it
+      if (!this.loopErrorShown) {
+        this.loopErrorShown = true;
+        console.error('[1945] loop error', err);
+        this.ui.toast('Có lỗi xảy ra — tiến trình vẫn được lưu. Tải lại trang nếu thấy lạ.', 'bad');
       }
     }
-    this.scene.draw(this.world, dt);
-    this.ui.tick();
-    this.updateAmbience();
     this.raf = requestAnimationFrame(this.loop);
   };
+
+  private warnedDay = 0;
+  private loopErrorShown = false;
+
+  /** One nudge shortly before closing time, so the day does not end mid-thought. */
+  private warnBeforeClosing() {
+    const s = this.world.state;
+    if (s.time.phase !== 'open' || s.time.hour < 16) return;
+    if (this.warnedDay === s.player.day) return;
+    this.warnedDay = s.player.day;
+    this.ui.toast('Trời sắp tối — còn khoảng một tiếng nữa là chốt sổ.', 'info');
+  }
 
   private updateAmbience() {
     const s = this.world.state;
@@ -213,12 +249,27 @@ export class Game {
     };
   }
 
+  /** Ends the day, asking first when customers are still waiting. */
+  requestEndDay() {
+    const waiting = this.world.state.customers.filter((c) => c.state === 'active' || c.state === 'queue').length;
+    if (waiting > 0) this.ui.confirm(`Còn ${waiting} khách đang chờ. Đóng cửa bây giờ?`, () => this.endDay(), 'Đóng cửa');
+    else this.endDay();
+  }
+
   beginMorning() {
     this.ui.closeModal();
     this.ui.refresh();
+    const s = this.world.state;
     // snapshot at the top of the day: quitting mid-day still leaves a Continue
-    if (this.world.state.settings.autosave) this.world.save(0);
-    this.ui.toast(`Ngày ${this.world.state.player.day} · ${this.world.state.weather.today === 'mua_to' ? 'Mưa lớn' : 'Hãy mở cửa khi sẵn sàng'}`, 'info');
+    if (s.settings.autosave) this.world.save(0);
+    // one line of planning info: how busy today is expected to be, and why
+    const expected = s.dayPlan.customers.length;
+    const weather = weatherLabel(s.weather.today);
+    const note = s.weather.today === 'mua_to' ? 'mưa lớn — khách vắng, đường lầy'
+      : s.weather.today === 'mua' ? 'trời mưa — khách ít hơn'
+      : s.weather.today === 'nong' ? 'trời nắng — hàng mau hỏng'
+      : 'thời tiết thuận';
+    this.ui.toast(`Ngày ${s.player.day} · ${weather} (${note}) · dự kiến ${expected} lượt khách. Mở cửa khi sẵn sàng.`, 'info');
   }
 
   loadSlot(slot: number) {
@@ -247,12 +298,12 @@ export class Game {
     }
   }
 
-  deleteSlot(slot: number) {
+  deleteSlot(slot: number, quiet = false) {
     const key = slot === 0 ? SAVE_PREFIX + 'auto' : SAVE_PREFIX + 'slot' + slot;
     try {
       localStorage.removeItem(key);
       localStorage.removeItem(key + '.bak');
-      this.ui.toast('Đã xóa ô lưu.', 'info');
+      if (!quiet) this.ui.toast('Đã xóa ô lưu.', 'info');
     } catch { /* ignore */ }
   }
 

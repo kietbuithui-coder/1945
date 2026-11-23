@@ -585,6 +585,133 @@ async function main() {
     check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
   }
 
+  console.log('\n— accessibility —');
+  {
+    check(document.getElementById('toasts')?.getAttribute('aria-live') === 'polite', 'toasts are announced to screen readers');
+    const dock = document.querySelector('#dock .icon-btn') as HTMLElement | null;
+    check(!!dock && dock.getAttribute('role') === 'button' && dock.tabIndex === 0, 'dock entries are keyboard focusable buttons');
+    ui.openPanel('inventory');
+    await sleep(10);
+    const modal = document.querySelector('.modal') as HTMLElement | null;
+    check(!!modal && modal.getAttribute('role') === 'dialog' && modal.getAttribute('aria-modal') === 'true', 'panels are announced as modal dialogs');
+    check(!!document.activeElement && !!modal?.contains(document.activeElement), 'focus moves into the dialog');
+    // Enter on a focused dock button activates it
+    ui.closeModal();
+    await sleep(5);
+    const target = document.querySelector('#dock .icon-btn[data-panel="prices"]') as HTMLElement | null;
+    target?.focus();
+    target?.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(10);
+    check((document.querySelector('.modal h2')?.textContent ?? '').includes('Bảng giá'), 'Enter on a focused dock button opens the panel');
+    click('[data-action="close-modal"]');
+    await sleep(5);
+  }
+
+  console.log('\n— settings: reduce motion + data reset —');
+  {
+    ui.openPanel('settings');
+    await sleep(10);
+    const before = game.world.state.settings.reduceMotion;
+    click('[data-action="setting"][data-key="reduceMotion"]');
+    await sleep(10);
+    check(game.world.state.settings.reduceMotion === !before, 'reduce-motion toggle flips');
+    // a fresh save must still carry the setting through a round trip
+    const json = game.world.serialize();
+    const back = (await import('../src/game/systems')).World.migrate(JSON.parse(json));
+    check(!!back && back.settings.reduceMotion === game.world.state.settings.reduceMotion, 'reduce-motion survives save/load');
+    // wiping everything asks first, then leaves no slot behind
+    click('[data-action="wipe-saves"]');
+    await sleep(10);
+    check(!!document.querySelector('.modal'), 'data reset asks for confirmation');
+    click('[data-action="confirm-yes"]');
+    await sleep(20);
+    check(game.screen === 'title', 'back on the title screen after wiping');
+    check(game.peekSlot(0) === null && game.peekSlot(1) === null, 'no save slot survives the wipe');
+    check(!!document.querySelector('[data-action="continue"]'), 'title still renders a continue entry (disabled)');
+  }
+
+  console.log('\n— one-click restock —');
+  {
+    const st = game.world.state;
+    // empty every shelf, then let the button fill them from the warehouse
+    for (const sh of st.shelves) { sh.itemId = null; sh.qty = 0; }
+    const before = st.shelves.filter((x) => x.itemId).length;
+    ui.openPanel('inventory');
+    await sleep(10);
+    click('[data-action="auto-restock"]');
+    await sleep(15);
+    const after = st.shelves.filter((x) => x.itemId).length;
+    check(before === 0, 'shelves emptied for the test');
+    check(after > 0, 'auto-restock fills empty shelves from stock: ' + after);
+    check((document.getElementById('toasts')?.textContent ?? '').includes('Đã bày hàng'), 'player is told how many shelves were filled');
+  }
+
+  console.log('\n— clock freezes behind panels, pause is visible —');
+  {
+    const st = game.world.state;
+    game.screen = 'playing'; // this block is independent of the previous one
+    st.time.phase = 'open';
+    st.time.hour = 10;
+    st.time.paused = false;
+    let calls = 0;
+    const orig = game.world.advanceTime.bind(game.world);
+    (game.world as any).advanceTime = (dt: number) => { calls++; return orig(dt); };
+    // drive the loop by hand, without letting it schedule endless frames
+    const realRaf = (globalThis as any).requestAnimationFrame;
+    (globalThis as any).requestAnimationFrame = () => 0;
+    const step = (t: number) => (game as any).loop(t);
+    ui.openPanel('inventory');
+    step(performance.now() + 100);
+    check(calls === 0, 'clock does not advance while a panel is open');
+    ui.closeModal();
+    step(performance.now() + 200);
+    check(calls > 0, 'clock resumes once the panel is closed');
+    (game.world as any).advanceTime = orig;
+
+    st.time.paused = true;
+    ui.tick();
+    const ov = document.getElementById('pause-overlay') as HTMLElement | null;
+    check(!!ov && ov.style.display === 'flex', 'manual pause shows the TẠM DỪNG overlay');
+    st.time.paused = false;
+    ui.tick();
+    check((document.getElementById('pause-overlay') as HTMLElement)?.style.display === 'none', 'overlay hides on resume');
+
+    // closing-time nudge
+    st.time.phase = 'open';
+    st.time.hour = 16.2;
+    (game as any).warnedDay = 0;
+    step(performance.now() + 300);
+    await sleep(5);
+    check((document.getElementById('toasts')?.textContent ?? '').includes('Trời sắp tối'), 'a toast warns before closing time');
+    check((document.getElementById('hud-time') as HTMLElement)?.classList.contains('closing'), 'clock is highlighted near closing time');
+    (globalThis as any).requestAnimationFrame = realRaf;
+  }
+
+  console.log('\n— new game cannot silently overwrite a run —');
+  {
+    // the previous block wiped every slot on purpose: make a run exist again
+    game.screen = 'playing';
+    game.world.save(0);
+    game.toTitle();
+    await sleep(10);
+    click('[data-action="new-game-screen"]');
+    await sleep(10);
+    const before = game.peekSlot(0)?.player.day;
+    click('#start-btn');
+    await sleep(10);
+    check(game.screen === 'title', 'first click does not start a new run when one exists');
+    check((document.querySelector('#start-btn')?.textContent ?? '').includes('ghi đè'), 'button asks to confirm the overwrite');
+    click('#start-btn');
+    await sleep(20);
+    check(game.screen === 'playing', 'second click starts the new run');
+    check(game.world.state.player.day === 1, 'new run starts on day 1');
+    click('[data-action="chapter-continue"]');
+    await sleep(10);
+    const ev2 = document.querySelector('[data-action="event-choice"]') as HTMLElement | null;
+    ev2?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await sleep(10);
+  }
+
   console.log('\n— title: panels, continue, autosave —');
   {
     // an autosave must exist as soon as a day has started, so the player can

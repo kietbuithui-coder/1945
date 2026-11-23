@@ -109,6 +109,7 @@ export function renderInventoryPanel(ui: UI) {
             ${Array.from({ length: slots }, (_, i) => slotHtml(i)).join('')}
           </div>
           <div class="small dim" style="margin-top:6px">Kéo một chồng hàng sang ô khác để sắp xếp. Bấm vào món để xem chi tiết.</div>
+          <div style="margin-top:6px"><button class="btn small" data-action="auto-restock" title="Bày hàng trong kho lên mọi kệ đang trống, món đắt trước">Bày hàng tự động</button></div>
           <div class="shelf-strip">${shelfHtml}</div>
         </div>
         <div class="inv-side">
@@ -550,9 +551,11 @@ export function renderSettingsPanel(ui: UI) {
       <div class="set-row"><span>Nhạc nền</span><input type="range" min="0" max="1" step="0.05" value="${st.music}" data-field="music"><b>${Math.round(st.music * 100)}%</b></div>
       <div class="set-row"><span>Tự động lưu</span><button class="btn small ${st.autosave ? 'primary' : ''}" data-action="setting" data-key="autosave">${st.autosave ? 'Bật' : 'Tắt'}</button></div>
       <div class="set-row"><span>Gợi ý trên màn hình</span><button class="btn small ${st.hints ? 'primary' : ''}" data-action="setting" data-key="hints">${st.hints ? 'Bật' : 'Tắt'}</button></div>
-      <div class="small dim" style="line-height:1.7">Phím tắt: <b>Space</b> tạm dừng · <b>1/2/3</b> tốc độ · <b>I</b> kho hàng · <b>P</b> bảng giá · <b>M</b> bản đồ · <b>Esc</b> đóng · <b>E</b> đóng cửa ngày.</div>
+      <div class="set-row"><span>Giảm hiệu ứng chuyển động</span><button class="btn small ${st.reduceMotion ? 'primary' : ''}" data-action="setting" data-key="reduceMotion">${st.reduceMotion ? 'Bật' : 'Tắt'}</button></div>
+      <div class="small dim" style="line-height:1.7">Phím tắt: <b>Space</b> tạm dừng · <b>1/2/3</b> tốc độ · <b>I</b> kho · <b>P</b> giá · <b>C</b> cửa hàng · <b>M</b> bản đồ · <b>Q</b> nhiệm vụ · <b>F</b> gia đình · <b>L</b> lưu · <b>H</b> trợ giúp · <b>O</b> mở cửa · <b>E</b> đóng cửa · <b>Esc</b> đóng cửa sổ.</div>
       <div class="divider"></div>
       <button class="btn" data-action="back-title">Về màn hình chính</button>
+      <button class="btn danger" data-action="wipe-saves" title="Xóa mọi ô lưu và tiến trình đang chơi">Xóa toàn bộ dữ liệu</button>
     </div>
     <div class="foot"><button class="btn" data-action="close-modal">Đóng</button></div>
   `, 'small-modal');
@@ -613,7 +616,22 @@ export function renderHelpPanel(ui: UI) {
           <h3 class="sec-title">Nợ & quan hệ</h3>
           <p class="small">Bán chịu giữ được khách nhưng tiền về chậm. Vay vốn giúp vượt qua ngày khó, nhưng lãi và kỳ hạn sẽ đeo bám. Quan hệ tốt mở ra hàng rẻ hơn và những câu chuyện riêng.</p>
           <h3 class="sec-title">Phím tắt</h3>
-          <p class="small">Space tạm dừng · 1/2/3 tốc độ · I kho hàng · P bảng giá · M bản đồ · E đóng cửa · Esc đóng cửa sổ.</p>
+          <table class="keys">
+            <tr><td><kbd>Space</kbd></td><td>Tạm dừng / tiếp tục</td></tr>
+            <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Tốc độ thời gian</td></tr>
+            <tr><td><kbd>I</kbd></td><td>Kho hàng & kệ</td></tr>
+            <tr><td><kbd>P</kbd></td><td>Bảng giá</td></tr>
+            <tr><td><kbd>C</kbd></td><td>Cửa hàng & nâng cấp</td></tr>
+            <tr><td><kbd>M</kbd></td><td>Bản đồ</td></tr>
+            <tr><td><kbd>Q</kbd></td><td>Nhiệm vụ</td></tr>
+            <tr><td><kbd>F</kbd></td><td>Gia đình</td></tr>
+            <tr><td><kbd>L</kbd></td><td>Lưu game</td></tr>
+            <tr><td><kbd>H</kbd></td><td>Trợ giúp</td></tr>
+            <tr><td><kbd>O</kbd></td><td>Mở cửa (buổi sáng)</td></tr>
+            <tr><td><kbd>E</kbd></td><td>Đóng cửa / chốt sổ</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Đóng cửa sổ đang mở</td></tr>
+          </table>
+          <p class="small dim">Mẹo: đồng hồ <b>dừng</b> khi bạn mở một bảng, nên cứ thỏa mái sắp kho — khách không mất kiên nhẫn lúc đó.</p>
         </div>
       </div>
     </div>

@@ -146,8 +146,9 @@ export class Scene {
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'source-over';
 
+    const calm = s.settings?.reduceMotion === true;
     // dust motes
-    if (s.weather.today !== 'mua' && s.weather.today !== 'mua_to') {
+    if (!calm && s.weather.today !== 'mua' && s.weather.today !== 'mua_to') {
       for (const m of this.motes) {
         m.x += m.vx * dt; m.y += m.vy * dt;
         if (m.y < -10) { m.y = 730; m.x = Math.random() * 1280; }
@@ -159,7 +160,7 @@ export class Scene {
     }
 
     // rain
-    if (s.weather.today === 'mua' || s.weather.today === 'mua_to') {
+    if (!calm && (s.weather.today === 'mua' || s.weather.today === 'mua_to')) {
       const heavy = s.weather.today === 'mua_to';
       ctx.strokeStyle = heavy ? 'rgba(190,210,215,0.42)' : 'rgba(190,210,215,0.28)';
       ctx.lineWidth = 1.5;

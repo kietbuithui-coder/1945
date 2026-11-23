@@ -42,6 +42,21 @@ class AudioEngine {
   setSfx(v: number) { if (this.sfxGain) this.sfxGain.gain.value = v; }
   setMusic(v: number) { if (this.musicGain) this.musicGain.gain.value = v * 0.7; }
 
+  /** Mute everything while the tab is hidden (timers still fire in the background,
+   *  so the score would keep playing to an empty room). */
+  duck(hidden: boolean) {
+    if (!this.master || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setTargetAtTime(hidden ? 0 : 0.9, t, 0.08);
+    if (hidden) {
+      if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+      this.stopRain();
+    } else if (this.started && !this.musicTimer) {
+      this.startMusic();
+    }
+  }
+
   private noiseBuffer(seconds = 1): AudioBuffer {
     const ctx = this.ctx!;
     const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);

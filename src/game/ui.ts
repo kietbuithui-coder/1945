@@ -692,6 +692,9 @@ export class UI {
     const root = document.getElementById('modal-root');
     if (root) { root.innerHTML = ''; root.style.display = 'none'; }
     this.activePanel = null;
+    // The title screen is rendered into the same container as panels: closing a
+    // panel from the title must bring the title back, not leave a black screen.
+    if (this.game.screen === 'title') { this.showTitle(); return; }
     this.refresh();
   }
 
@@ -841,8 +844,8 @@ export class UI {
 
   // ------------------------------------------------------------ screens ----
   showTitle() {
-    this.closeModal();
     const root = document.getElementById('modal-root')!;
+    this.activePanel = null;
     root.style.display = 'block';
     const auto = this.game.peekSlot(0);
     root.innerHTML = `<div class="title-screen">
@@ -852,8 +855,11 @@ export class UI {
         <div class="sub">Một ngày ở thị trấn An Bình</div>
       </div>
       <div class="title-menu">
-        <button class="btn big primary" data-action="new-game-screen">Chơi mới</button>
-        ${auto ? `<button class="btn" data-action="continue">Tiếp tục · Ngày ${auto.player.day}</button>` : ''}
+        ${auto
+          ? `<button class="btn big primary" data-action="continue">Tiếp tục · Ngày ${auto.player.day}</button>
+             <button class="btn big" data-action="new-game-screen">Chơi mới</button>`
+          : `<button class="btn big primary" data-action="new-game-screen">Chơi mới</button>
+             <button class="btn big" data-action="continue" disabled title="Chưa có dữ liệu lưu — chơi mới rồi game sẽ tự lưu">Tiếp tục</button>`}
         <button class="btn" data-action="open-panel" data-panel="save">Lưu / Tải</button>
         <button class="btn" data-action="open-panel" data-panel="settings">Cài đặt</button>
       </div>
@@ -882,6 +888,7 @@ export class UI {
     let difficulty: Difficulty = 'normal';
     const root = document.getElementById('modal-root')!;
     const render = () => {
+      root.style.display = 'block';
       root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
         <div class="modal panel-wood frame-inner" style="width:620px" onclick="event.stopPropagation()">
           <div class="head"><h2>Bắt đầu câu chuyện</h2></div>

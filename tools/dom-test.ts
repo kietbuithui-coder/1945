@@ -82,6 +82,13 @@ async function main() {
   await sleep(60);
   check(!!$('.title-screen'), 'title screen renders');
   check(!!$('[data-action="new-game-screen"]'), 'title has new-game button');
+  {
+    // no save yet: the entry is visible but explains itself instead of vanishing
+    const c = $('[data-action="continue"]') as HTMLButtonElement | null;
+    check(!!c, 'title always shows a "Tiếp tục" entry');
+    check(!!c && c.disabled, '"Tiếp tục" is disabled when nothing is saved');
+    check(!!c && !!(c as HTMLElement).title, 'disabled "Tiếp tục" explains why');
+  }
   check(!!$('#loading'), 'loading overlay exists');
 
   console.log('\n— new game —');
@@ -523,6 +530,33 @@ async function main() {
     click('[data-action="confirm-yes"]');
     await sleep(10);
     check(game.world.state.inventory.length === before - 1, 'confirming discards the stack');
+  }
+
+  console.log('\n— title: panels, continue, autosave —');
+  {
+    // an autosave must exist as soon as a day has started, so the player can
+    // always come back to a run they already began
+    game.toTitle();
+    await sleep(10);
+    check(!!$('[data-action="continue"]'), 'title offers "Tiếp tục" once a run exists');
+    const cont = $('[data-action="continue"]') as HTMLButtonElement | null;
+    check(!!cont && !cont.disabled, '"Tiếp tục" is enabled when a save exists');
+
+    // opening a panel from the title used to wipe the title screen for good
+    click('[data-action="open-panel"][data-panel="settings"]');
+    await sleep(10);
+    check(!!$('.modal'), 'settings panel opens from the title');
+    click('[data-action="close-modal"]');
+    await sleep(10);
+    check(!!$('.title-screen'), 'title screen comes back after closing a panel');
+    check(!!$('[data-action="new-game-screen"]'), '"Chơi mới" is clickable again after closing a panel');
+    check((document.getElementById('modal-root') as HTMLElement).style.display !== 'none', 'modal-root is visible on the title');
+
+    // and the continue button actually loads the run
+    click('[data-action="continue"]');
+    await sleep(20);
+    check(game.screen === 'playing', 'continue loads the autosave');
+    check(game.world.state.player.day >= 1, 'loaded run is on a real day: ' + game.world.state.player.day);
   }
 
   console.log('\n— ending —');

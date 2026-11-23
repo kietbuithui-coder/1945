@@ -74,6 +74,8 @@ export class Game {
     this.scene.titleMode = true;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.loop);
+    window.addEventListener('pagehide', this.onHide);
+    document.addEventListener('visibilitychange', this.onHide);
     const { critical, rest } = splitAssetUrls();
     try {
       await preload(critical, (done, total) => {
@@ -91,7 +93,21 @@ export class Game {
     cancelAnimationFrame(this.raf);
     audio.stopMusic();
     audio.stopRain();
+    window.removeEventListener('pagehide', this.onHide);
+    window.removeEventListener('visibilitychange', this.onHide);
   }
+
+  /** Keep the player's progress when the tab is closed or hidden, and stop the
+   *  soundtrack while nobody is listening. */
+  private onHide = () => {
+    if (this.screen !== 'playing') return;
+    if (document.visibilityState === 'hidden') {
+      if (this.world.state.settings.autosave) this.world.save(0);
+      audio.duck(true);
+    } else {
+      audio.duck(false);
+    }
+  };
 
   private loop = (t: number) => {
     const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000));
@@ -184,6 +200,8 @@ export class Game {
   beginMorning() {
     this.ui.closeModal();
     this.ui.refresh();
+    // snapshot at the top of the day: quitting mid-day still leaves a Continue
+    if (this.world.state.settings.autosave) this.world.save(0);
     this.ui.toast(`Ngày ${this.world.state.player.day} · ${this.world.state.weather.today === 'mua_to' ? 'Mưa lớn' : 'Hãy mở cửa khi sẵn sàng'}`, 'info');
   }
 

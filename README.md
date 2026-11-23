@@ -82,7 +82,8 @@ kiến trúc tách module để mở rộng sang Android/touch.
 ### Lưu game
 
 `localStorage` với key `vn1945.auto`, `vn1945.slot1..3` (+ `.bak`).
-Autosave sau mỗi ngày và khi tải. Lưu đủ: vị trí, kho, kệ, NPC, nợ, giao hàng, nhiệm vụ, cờ truyện, nâng cấp.
+Tự động lưu **ngay khi bắt đầu mỗi ngày** (nên luôn có nút "Tiếp tục" ở màn hình chính),
+sau mỗi ngày, và khi ẩn/đóng tab. Lưu đủ: vị trí, kho, kệ, NPC, nợ, giao hàng, nhiệm vụ, cờ truyện, nâng cấp.
 `World.migrate` merge bản cũ vào `newGame` nên save cũ vẫn mở được; **không phát lại giao dịch** khi tải.
 
 ---

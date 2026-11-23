@@ -1297,7 +1297,7 @@ export function newGame(name: string, difficulty: Difficulty, seed?: number): Ga
     totals: emptyTotals(),
     day: emptyDay(),
     story: { chapter: 1, flags: {} },
-    settings: { sfx: 0.7, music: 0.45, autosave: true, hints: true },
+    settings: { sfx: 0.7, music: 0.45, autosave: true, hints: true, reduceMotion: false },
     rngSeed: seed ?? Math.floor(Math.random() * 4294967296),
     dayPlan: { customers: [], eventIds: [], news: [] },
     upgrades: [],

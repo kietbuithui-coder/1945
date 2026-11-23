@@ -1158,3 +1158,9 @@ input[type='range'] { width: 200px; accent-color: var(--gold); }
   font-size: 12px;
   text-align: center;
 }
+
+
+/* respect the OS-level preference too */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+}

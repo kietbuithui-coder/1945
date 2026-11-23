@@ -551,9 +551,11 @@ export function renderSettingsPanel(ui: UI) {
       <div class="set-row"><span>Nhạc nền</span><input type="range" min="0" max="1" step="0.05" value="${st.music}" data-field="music"><b>${Math.round(st.music * 100)}%</b></div>
       <div class="set-row"><span>Tự động lưu</span><button class="btn small ${st.autosave ? 'primary' : ''}" data-action="setting" data-key="autosave">${st.autosave ? 'Bật' : 'Tắt'}</button></div>
       <div class="set-row"><span>Gợi ý trên màn hình</span><button class="btn small ${st.hints ? 'primary' : ''}" data-action="setting" data-key="hints">${st.hints ? 'Bật' : 'Tắt'}</button></div>
-      <div class="small dim" style="line-height:1.7">Phím tắt: <b>Space</b> tạm dừng · <b>1/2/3</b> tốc độ · <b>I</b> kho hàng · <b>P</b> bảng giá · <b>M</b> bản đồ · <b>Esc</b> đóng · <b>E</b> đóng cửa ngày.</div>
+      <div class="set-row"><span>Giảm hiệu ứng chuyển động</span><button class="btn small ${st.reduceMotion ? 'primary' : ''}" data-action="setting" data-key="reduceMotion">${st.reduceMotion ? 'Bật' : 'Tắt'}</button></div>
+      <div class="small dim" style="line-height:1.7">Phím tắt: <b>Space</b> tạm dừng · <b>1/2/3</b> tốc độ · <b>I</b> kho · <b>P</b> giá · <b>C</b> cửa hàng · <b>M</b> bản đồ · <b>Q</b> nhiệm vụ · <b>F</b> gia đình · <b>L</b> lưu · <b>H</b> trợ giúp · <b>O</b> mở cửa · <b>E</b> đóng cửa · <b>Esc</b> đóng cửa sổ.</div>
       <div class="divider"></div>
       <button class="btn" data-action="back-title">Về màn hình chính</button>
+      <button class="btn danger" data-action="wipe-saves" title="Xóa mọi ô lưu và tiến trình đang chơi">Xóa toàn bộ dữ liệu</button>
     </div>
     <div class="foot"><button class="btn" data-action="close-modal">Đóng</button></div>
   `, 'small-modal');

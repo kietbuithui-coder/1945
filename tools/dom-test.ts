@@ -585,6 +585,29 @@ async function main() {
     check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
   }
 
+  console.log('\n— settings: reduce motion + data reset —');
+  {
+    ui.openPanel('settings');
+    await sleep(10);
+    const before = game.world.state.settings.reduceMotion;
+    click('[data-action="setting"][data-key="reduceMotion"]');
+    await sleep(10);
+    check(game.world.state.settings.reduceMotion === !before, 'reduce-motion toggle flips');
+    // a fresh save must still carry the setting through a round trip
+    const json = game.world.serialize();
+    const back = (await import('../src/game/systems')).World.migrate(JSON.parse(json));
+    check(!!back && back.settings.reduceMotion === game.world.state.settings.reduceMotion, 'reduce-motion survives save/load');
+    // wiping everything asks first, then leaves no slot behind
+    click('[data-action="wipe-saves"]');
+    await sleep(10);
+    check(!!document.querySelector('.modal'), 'data reset asks for confirmation');
+    click('[data-action="confirm-yes"]');
+    await sleep(20);
+    check(game.screen === 'title', 'back on the title screen after wiping');
+    check(game.peekSlot(0) === null && game.peekSlot(1) === null, 'no save slot survives the wipe');
+    check(!!document.querySelector('[data-action="continue"]'), 'title still renders a continue entry (disabled)');
+  }
+
   console.log('\n— one-click restock —');
   {
     const st = game.world.state;
@@ -604,6 +627,7 @@ async function main() {
   console.log('\n— clock freezes behind panels, pause is visible —');
   {
     const st = game.world.state;
+    game.screen = 'playing'; // this block is independent of the previous one
     st.time.phase = 'open';
     st.time.hour = 10;
     st.time.paused = false;

@@ -379,6 +379,14 @@ export class UI {
       case 'chapter-continue': this.closeModal(); this.game.afterChapter(); break;
       case 'ending-continue': this.closeModal(); this.game.toTitle(); break;
       case 'setting': this.toggleSetting(d.key!); break;
+      case 'wipe-saves':
+        this.confirm('Xóa toàn bộ ô lưu và tiến trình hiện tại? Không thể khôi phục.', () => {
+          for (let i = 0; i < 4; i++) this.game.deleteSlot(i);
+          this.closeModal();
+          this.game.toTitle();
+          this.toast('Đã xóa toàn bộ dữ liệu.', 'info');
+        }, 'Xóa hết');
+        break;
       case 'help': this.openHelp(); break;
       case 'trade-next': this.game.nextCustomer(); break;
       case 'dismiss': this.game.dismissCustomer(); break;
@@ -393,6 +401,7 @@ export class UI {
     const st = this.state.settings;
     if (key === 'autosave') st.autosave = !st.autosave;
     if (key === 'hints') { st.hints = !st.hints; this.hintVisible = st.hints; }
+    if (key === 'reduceMotion') st.reduceMotion = !st.reduceMotion;
     this.openSettings();
   }
 

@@ -289,12 +289,12 @@ export class Game {
     }
   }
 
-  deleteSlot(slot: number) {
+  deleteSlot(slot: number, quiet = false) {
     const key = slot === 0 ? SAVE_PREFIX + 'auto' : SAVE_PREFIX + 'slot' + slot;
     try {
       localStorage.removeItem(key);
       localStorage.removeItem(key + '.bak');
-      this.ui.toast('Đã xóa ô lưu.', 'info');
+      if (!quiet) this.ui.toast('Đã xóa ô lưu.', 'info');
     } catch { /* ignore */ }
   }
 

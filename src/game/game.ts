@@ -128,22 +128,49 @@ export class Game {
   private loop = (t: number) => {
     const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000));
     this.last = t;
-    if (this.screen === 'playing') {
-      const before = this.world.state.time.phase;
-      this.world.advanceTime(dt);
-      if (before === 'open' && this.world.state.time.phase === 'report') {
-        // the clock ran out on its own: show the ledger instead of stalling
-        this.ui.showReport();
+    try {
+      if (this.screen === 'playing') {
+        // Reading a panel must not cost the player customers: the clock only runs
+        // while the shop is actually in view.
+        const blocked = this.ui.modalOpen || this.ui.activePanel !== null;
+        if (!blocked) {
+          const before = this.world.state.time.phase;
+          this.world.advanceTime(dt);
+          if (before === 'open' && this.world.state.time.phase === 'report') {
+            // the clock ran out on its own: show the ledger instead of stalling
+            this.ui.showReport();
+          }
+          if (this.world.state.time.phase === 'open' && !this.world.state.time.paused) {
+            this.world.state.playSeconds += dt;
+          }
+          this.warnBeforeClosing();
+        }
       }
-      if (this.world.state.time.phase === 'open' && !this.world.state.time.paused) {
-        this.world.state.playSeconds += dt;
+      this.scene.draw(this.world, dt);
+      this.ui.tick();
+      this.updateAmbience();
+    } catch (err) {
+      // a broken frame must not take the whole game down with it
+      if (!this.loopErrorShown) {
+        this.loopErrorShown = true;
+        console.error('[1945] loop error', err);
+        this.ui.toast('Có lỗi xảy ra — tiến trình vẫn được lưu. Tải lại trang nếu thấy lạ.', 'bad');
       }
     }
-    this.scene.draw(this.world, dt);
-    this.ui.tick();
-    this.updateAmbience();
     this.raf = requestAnimationFrame(this.loop);
   };
+
+  private warnedDay = 0;
+  private loopErrorShown = false;
+
+  /** One nudge shortly before closing time, so the day does not end mid-thought. */
+  private warnBeforeClosing() {
+    const s = this.world.state;
+    if (s.time.phase !== 'open' || s.time.hour < 16) return;
+    if (this.warnedDay === s.player.day) return;
+    this.warnedDay = s.player.day;
+    this.ui.toast('Trời sắp tối — còn khoảng một tiếng nữa là chốt sổ.', 'info');
+  }
 
   private updateAmbience() {
     const s = this.world.state;

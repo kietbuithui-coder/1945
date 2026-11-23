@@ -585,6 +585,68 @@ async function main() {
     check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
   }
 
+  console.log('\n— clock freezes behind panels, pause is visible —');
+  {
+    const st = game.world.state;
+    st.time.phase = 'open';
+    st.time.hour = 10;
+    st.time.paused = false;
+    let calls = 0;
+    const orig = game.world.advanceTime.bind(game.world);
+    (game.world as any).advanceTime = (dt: number) => { calls++; return orig(dt); };
+    // drive the loop by hand, without letting it schedule endless frames
+    const realRaf = (globalThis as any).requestAnimationFrame;
+    (globalThis as any).requestAnimationFrame = () => 0;
+    const step = (t: number) => (game as any).loop(t);
+    ui.openPanel('inventory');
+    step(performance.now() + 100);
+    check(calls === 0, 'clock does not advance while a panel is open');
+    ui.closeModal();
+    step(performance.now() + 200);
+    check(calls > 0, 'clock resumes once the panel is closed');
+    (game.world as any).advanceTime = orig;
+
+    st.time.paused = true;
+    ui.tick();
+    const ov = document.getElementById('pause-overlay') as HTMLElement | null;
+    check(!!ov && ov.style.display === 'flex', 'manual pause shows the TẠM DỪNG overlay');
+    st.time.paused = false;
+    ui.tick();
+    check((document.getElementById('pause-overlay') as HTMLElement)?.style.display === 'none', 'overlay hides on resume');
+
+    // closing-time nudge
+    st.time.phase = 'open';
+    st.time.hour = 16.2;
+    (game as any).warnedDay = 0;
+    step(performance.now() + 300);
+    await sleep(5);
+    check((document.getElementById('toasts')?.textContent ?? '').includes('Trời sắp tối'), 'a toast warns before closing time');
+    check((document.getElementById('hud-time') as HTMLElement)?.classList.contains('closing'), 'clock is highlighted near closing time');
+    (globalThis as any).requestAnimationFrame = realRaf;
+  }
+
+  console.log('\n— new game cannot silently overwrite a run —');
+  {
+    game.toTitle();
+    await sleep(10);
+    click('[data-action="new-game-screen"]');
+    await sleep(10);
+    const before = game.peekSlot(0)?.player.day;
+    click('#start-btn');
+    await sleep(10);
+    check(game.screen === 'title', 'first click does not start a new run when one exists');
+    check((document.querySelector('#start-btn')?.textContent ?? '').includes('ghi đè'), 'button asks to confirm the overwrite');
+    click('#start-btn');
+    await sleep(20);
+    check(game.screen === 'playing', 'second click starts the new run');
+    check(game.world.state.player.day === 1, 'new run starts on day 1');
+    click('[data-action="chapter-continue"]');
+    await sleep(10);
+    const ev2 = document.querySelector('[data-action="event-choice"]') as HTMLElement | null;
+    ev2?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await sleep(10);
+  }
+
   console.log('\n— title: panels, continue, autosave —');
   {
     // an autosave must exist as soon as a day has started, so the player can

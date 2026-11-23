@@ -44,6 +44,9 @@ export class UI {
   selectedUid: number | null = null;
   lastCustomerUid: number | null = null;
   hintVisible = true;
+  /** True while a modal or panel covers the shop — the clock is frozen then, so
+   *  the player can read and rearrange stock without losing customers. */
+  modalOpen = false;
   currentEvent: EventDef | null = null;
   private confirmCb: (() => void) | null = null;
   private dragUid: number | null = null;
@@ -58,6 +61,7 @@ export class UI {
       <div class="dock" id="dock"></div>
       <div id="trade-root"></div>
       <div class="help-hint" id="hint"></div>
+      <div class="pause-overlay" id="pause-overlay"><div class="pause-card"><div class="t">TẠM DỪNG</div><div class="s">Nhấn <b>Space</b> để tiếp tục · <b>1/2/3</b> đổi tốc độ</div></div></div>
       <div id="modal-root"></div>
       <div class="toasts" id="toasts"></div>
     `;
@@ -342,7 +346,12 @@ export class UI {
         break;
       }
       case 'open-shop': this.game.openShop(); break;
-      case 'end-day': this.game.endDay(); break;
+      case 'end-day': {
+        const waiting = this.world.state.customers.filter((c) => c.state === 'active' || c.state === 'queue').length;
+        if (waiting > 0) this.confirm(`Còn ${waiting} khách đang chờ. Đóng cửa bây giờ?`, () => this.game.endDay(), 'Đóng cửa');
+        else this.game.endDay();
+        break;
+      }
       case 'pause': this.state.time.paused = !this.state.time.paused; this.refresh(); break;
       case 'speed': this.state.time.speed = (this.state.time.speed === 1 ? 2 : this.state.time.speed === 2 ? 3 : 1); this.refresh(); break;
       case 'trade-offer': this.doOffer(); break;
@@ -402,8 +411,13 @@ export class UI {
     if (timeEl) {
       timeEl.textContent = s.time.phase === 'open' ? `${clock(s.time.hour)} · ${timePhase(s.time.hour)}` : phaseLabel(s.time.phase);
     }
+    const frozen = s.time.paused || this.modalOpen || this.activePanel !== null;
     const speedEl = document.getElementById('hud-speed');
-    if (speedEl) speedEl.textContent = s.time.paused ? '❚❚' : `${s.time.speed}×`;
+    if (speedEl) speedEl.textContent = frozen ? '❚❚' : `${s.time.speed}×`;
+    const overlay = document.getElementById('pause-overlay');
+    if (overlay) overlay.style.display = s.time.paused && !this.modalOpen && !this.activePanel ? 'flex' : 'none';
+    const timeEl2 = document.getElementById('hud-time');
+    if (timeEl2) timeEl2.classList.toggle('closing', s.time.phase === 'open' && s.time.hour >= 16);
     const c = this.world.activeCustomer();
     const bar = document.getElementById('patience-fill');
     if (bar && c) {
@@ -526,6 +540,11 @@ export class UI {
           <div class="row"><label>Giá bán</label><input type="number" min="1" value="${this.trade.price}" data-field="trade-price"><span class="dim small">đồng</span></div>
           <div class="price-big">${fmtMoney(total)} đồng</div>
           <div class="small dim" style="text-align:center">Giá hợp lý: ${fmtMoney(Math.round(fair * (QUALITY_MULT[activeShelf?.quality ?? 1] ?? 1)))} đồng</div>
+          ${(() => {
+            const unit = activeShelf?.cost ?? 0;
+            const profit = total - unit * this.trade.qty;
+            return `<div class="small ${profit >= 0 ? 'dim' : ''}" style="text-align:center;${profit < 0 ? 'color:#e08a7a' : ''}">Giá vốn ${fmtMoney(unit * this.trade.qty)} đồng · ${profit >= 0 ? 'Lãi' : 'Lỗ'} ~${fmtMoney(Math.abs(profit))} đồng</div>`;
+          })()}
           <div class="actions">
             <button class="btn small" data-action="markup-quick" data-delta="-0.05">-5%</button>
             <button class="btn small" data-action="markup-quick" data-delta="0.05">+5%</button>
@@ -698,6 +717,7 @@ export class UI {
 
   // --------------------------------------------------------------- modals --
   openModal(html: string, cls = '', staticBackdrop = false) {
+    this.modalOpen = true;
     const root = document.getElementById('modal-root')!;
     // Re-rendering a panel (filter chip, markup +, sort...) must not throw the
     // player back to the top of a long list: carry the scroll position over.
@@ -717,6 +737,7 @@ export class UI {
     const root = document.getElementById('modal-root');
     if (root) { root.innerHTML = ''; root.style.display = 'none'; }
     this.activePanel = null;
+    this.modalOpen = false;
     // The title screen is rendered into the same container as panels: closing a
     // panel from the title must bring the title back, not leave a black screen.
     if (this.game.screen === 'title') { this.showTitle(); return; }
@@ -871,6 +892,7 @@ export class UI {
   showTitle() {
     const root = document.getElementById('modal-root')!;
     this.activePanel = null;
+    this.modalOpen = false;
     root.style.display = 'block';
     const auto = this.game.peekSlot(0);
     root.innerHTML = `<div class="title-screen">
@@ -910,10 +932,14 @@ export class UI {
   }
 
   showNewGame() {
+    this.modalOpen = true;
     let difficulty: Difficulty = 'normal';
+    let armed = false; // second click confirms overwriting an existing run
     const root = document.getElementById('modal-root')!;
     const render = () => {
       root.style.display = 'block';
+      const existing = this.game.peekSlot(0);
+      const confirming = !!existing && armed; // armed by the first click
       root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
         <div class="modal panel-wood frame-inner" style="width:620px" data-action="modal-surface">
           <div class="head"><h2>Bắt đầu câu chuyện</h2></div>
@@ -928,10 +954,11 @@ export class UI {
                 </div>`).join('')}
             </div>
             <div class="small dim" style="line-height:1.6">Tháng 8 năm 1945. Bạn thừa kế một tiệm tạp hóa nhỏ ở thị trấn An Bình. Hàng khan hiếm, người dân thiếu tiền, và mỗi quyết định của bạn đều để lại dấu vết.</div>
+            ${existing ? `<div class="warn-box">⚠ Đang có tiến trình <b>ngày ${existing.player.day}</b>. Bắt đầu mới sẽ ghi đè lên tiến trình đó${confirming ? ' — bấm <b>Bắt đầu (ghi đè)</b> để xác nhận.' : '.'}</div>` : ''}
           </div>
           <div class="foot">
             <button class="btn" data-action="back-title">Quay lại</button>
-            <button class="btn primary" id="start-btn">Bắt đầu</button>
+            <button class="btn primary" id="start-btn">${confirming ? 'Bắt đầu (ghi đè)' : 'Bắt đầu'}</button>
           </div>
         </div>
       </div>`;
@@ -941,8 +968,13 @@ export class UI {
           render();
         });
       });
+      const nameInput = root.querySelector('#player-name') as HTMLInputElement | null;
+      if (nameInput) nameInput.value = this.game.peekSlot(0)?.player.name ?? nameInput.value;
       root.querySelector('#start-btn')?.addEventListener('click', () => {
-        const name = (root.querySelector('#player-name') as HTMLInputElement)?.value.trim() || '';
+        const name = (root.querySelector('#player-name') as HTMLInputElement)?.value.trim() || 'Người chủ tiệm';
+        // a run already exists: the first click only arms the button, so nobody
+        // loses 20 days of progress by mis-clicking "Chơi mới"
+        if (this.game.peekSlot(0) && !armed) { armed = true; render(); return; }
         this.game.startNew(name, difficulty);
       });
     };
@@ -952,6 +984,7 @@ export class UI {
   showChapter(n: number) {
     const ch = CHAPTERS.find((c) => c.n === n);
     if (!ch) return;
+    this.modalOpen = true;
     const root = document.getElementById('modal-root')!;
     root.style.display = 'block';
     root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
@@ -968,6 +1001,7 @@ export class UI {
   }
 
   showReport() {
+    this.modalOpen = true;
     const r = this.state.lastReport ?? this.state.day;
     const root = document.getElementById('modal-root')!;
     root.style.display = 'block';
@@ -1021,6 +1055,7 @@ export class UI {
   }
 
   showEvent(ev: EventDef) {
+    this.modalOpen = true;
     const root = document.getElementById('modal-root')!;
     root.style.display = 'block';
     const portrait = ev.portrait || (ev.kind === 'npc' ? '/assets/characters/portraits/player_neutral.png' : '');
@@ -1065,6 +1100,7 @@ export class UI {
   }
 
   showEnding() {
+    this.modalOpen = true;
     const e = this.state.ending;
     if (!e) return;
     const root = document.getElementById('modal-root')!;
@@ -1086,7 +1122,10 @@ export class UI {
             <div class="stat"><div class="v">${this.state.totals.helped}</div><div class="l">Lần giúp đỡ</div></div>
             <div class="stat"><div class="v">${this.state.totals.spoiled}</div><div class="l">Hàng hư</div></div>
           </div>
-          <div style="text-align:center"><button class="btn primary big" data-action="ending-continue">Về màn hình chính</button></div>
+          <div style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+            <button class="btn primary big" data-action="ending-continue">Về màn hình chính</button>
+            <button class="btn big" data-action="new-game-screen">Chơi lại</button>
+          </div>
         </div>
       </div>
     </div>`;

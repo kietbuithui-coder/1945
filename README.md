@@ -96,6 +96,8 @@ sau mỗi ngày, và khi ẩn/đóng tab. Lưu đủ: vị trí, kho, kệ, NPC,
   còn kiểm tra thêm hai game cùng seed cho cùng một thế giới.
 - `npx tsx tools/dom-test.ts` — boots UI thật bằng jsdom: title → new game → intro → 12 panel →
   kéo thả/tách chồng → mua hàng → phục vụ khách → 6 nút mặc cả → nâng cấp → đi map → kết thúc.
+- `npx tsx tools/fuzz.ts [seed] [steps]` — fuzzer: bấm ngẫu nhiên hàng trăm nút trong
+  UI thật, chạy đủ 30 ngày, assert không NaN, tiền không âm, số lượng không âm.
 - `npm run build` — `tsc --noEmit` + Vite.
 
 ---

@@ -667,6 +667,9 @@ async function main() {
 
   console.log('\n— new game cannot silently overwrite a run —');
   {
+    // the previous block wiped every slot on purpose: make a run exist again
+    game.screen = 'playing';
+    game.world.save(0);
     game.toTitle();
     await sleep(10);
     click('[data-action="new-game-screen"]');

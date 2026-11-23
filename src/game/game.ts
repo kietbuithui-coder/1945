@@ -44,6 +44,9 @@ export class Game {
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       if (this.typing()) return;
       const s = this.world.state;
+      // chapter / event / report / ending cards are story-critical: while one is
+      // up, only Escape is meaningful, and it is ignored for static cards anyway
+      if (document.querySelector('.backdrop[data-static]') && e.key !== 'Escape') return;
       if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
       switch (e.key) {
         case ' ':
@@ -59,7 +62,12 @@ export class Game {
         case 'p': case 'P': this.ui.openPanel('prices'); break;
         case 'm': case 'M': this.ui.openPanel('map'); break;
         case 'o': case 'O': if (s.time.phase === 'morning') this.openShop(); break;
-        case 'e': case 'E': if (s.time.phase === 'open') this.endDay(); break;
+        case 'e': case 'E': if (s.time.phase === 'open') this.requestEndDay(); break;
+        case 'h': case 'H': this.ui.openPanel('help'); break;
+        case 'q': case 'Q': this.ui.openPanel('quests'); break;
+        case 'f': case 'F': this.ui.openPanel('family'); break;
+        case 'l': case 'L': this.ui.openPanel('save'); break;
+        case 'c': case 'C': this.ui.openPanel('shop'); break;
         case 'Escape':
           // story-critical cards (chapter, report, event, ending) must be answered
           if (!document.querySelector('.backdrop[data-static]')) this.ui.closeModal();
@@ -238,6 +246,13 @@ export class Game {
       }
       this.beginMorning();
     };
+  }
+
+  /** Ends the day, asking first when customers are still waiting. */
+  requestEndDay() {
+    const waiting = this.world.state.customers.filter((c) => c.state === 'active' || c.state === 'queue').length;
+    if (waiting > 0) this.ui.confirm(`Còn ${waiting} khách đang chờ. Đóng cửa bây giờ?`, () => this.endDay(), 'Đóng cửa');
+    else this.endDay();
   }
 
   beginMorning() {

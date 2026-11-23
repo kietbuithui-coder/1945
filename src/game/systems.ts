@@ -255,6 +255,21 @@ export class World {
     return true;
   }
 
+  /** Fills every empty shelf from the warehouse, most valuable goods first.
+   *  Saves the player ten clicks every morning; returns how many shelves filled. */
+  autoRestock(): number {
+    let placed = 0;
+    for (const sh of this.state.shelves) {
+      if (sh.itemId) continue;
+      const pick = [...this.state.inventory]
+        .filter((i) => ITEMS[i.itemId] && i.qty > 0)
+        .sort((a, b) => (ITEMS[b.itemId].sell - ITEMS[a.itemId].sell) || (b.qty - a.qty))[0];
+      if (!pick) break;
+      if (this.restockShelf(sh.id, pick.uid, pick.qty)) placed++;
+    }
+    return placed;
+  }
+
   autoSort(mode: 'category' | 'qty' | 'value' | 'quality' = 'category') {
     const list = [...this.state.inventory];
     list.sort((a, b) => {

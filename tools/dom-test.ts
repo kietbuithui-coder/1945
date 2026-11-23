@@ -585,6 +585,22 @@ async function main() {
     check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
   }
 
+  console.log('\n— one-click restock —');
+  {
+    const st = game.world.state;
+    // empty every shelf, then let the button fill them from the warehouse
+    for (const sh of st.shelves) { sh.itemId = null; sh.qty = 0; }
+    const before = st.shelves.filter((x) => x.itemId).length;
+    ui.openPanel('inventory');
+    await sleep(10);
+    click('[data-action="auto-restock"]');
+    await sleep(15);
+    const after = st.shelves.filter((x) => x.itemId).length;
+    check(before === 0, 'shelves emptied for the test');
+    check(after > 0, 'auto-restock fills empty shelves from stock: ' + after);
+    check((document.getElementById('toasts')?.textContent ?? '').includes('Đã bày hàng'), 'player is told how many shelves were filled');
+  }
+
   console.log('\n— clock freezes behind panels, pause is visible —');
   {
     const st = game.world.state;

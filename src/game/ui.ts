@@ -230,6 +230,12 @@ export class UI {
       case 'close-modal': this.closeModal(); break;
       case 'modal-surface': break; // the modal's own background: swallow the click
       case 'tab': this.invTab = d.tab as 'warehouse' | 'shelves'; this.openInventory(); break;
+      case 'auto-restock': {
+        const n = this.world.autoRestock();
+        this.toast(n ? `Đã bày hàng lên ${n} kệ.` : 'Không còn kệ trống hoặc kho đã hết hàng.', n ? 'good' : 'info');
+        this.openInventory();
+        break;
+      }
       case 'filter': this.filter = d.cat!; this.refreshPanel(); break;
       case 'sort': this.sortMode = d.mode!; this.world.autoSort(this.sortMode as never); this.refreshPanel(); break;
       case 'select-item': this.selectedUid = Number(d.uid); this.openInventory(); break;
@@ -346,12 +352,7 @@ export class UI {
         break;
       }
       case 'open-shop': this.game.openShop(); break;
-      case 'end-day': {
-        const waiting = this.world.state.customers.filter((c) => c.state === 'active' || c.state === 'queue').length;
-        if (waiting > 0) this.confirm(`Còn ${waiting} khách đang chờ. Đóng cửa bây giờ?`, () => this.game.endDay(), 'Đóng cửa');
-        else this.game.endDay();
-        break;
-      }
+      case 'end-day': this.game.requestEndDay(); break;
       case 'pause': this.state.time.paused = !this.state.time.paused; this.refresh(); break;
       case 'speed': this.state.time.speed = (this.state.time.speed === 1 ? 2 : this.state.time.speed === 2 ? 3 : 1); this.refresh(); break;
       case 'trade-offer': this.doOffer(); break;

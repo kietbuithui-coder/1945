@@ -208,6 +208,7 @@ export class UI {
       case 'back-title': this.game.toTitle(); break;
       case 'open-panel': this.openPanel(d.panel!); break;
       case 'close-modal': this.closeModal(); break;
+      case 'modal-surface': break; // the modal's own background: swallow the click
       case 'tab': this.invTab = d.tab as 'warehouse' | 'shelves'; this.openInventory(); break;
       case 'filter': this.filter = d.cat!; this.openInventory(); break;
       case 'sort': this.sortMode = d.mode!; this.world.autoSort(this.sortMode as never); this.openInventory(); break;
@@ -683,7 +684,7 @@ export class UI {
   openModal(html: string, cls = '', staticBackdrop = false) {
     const root = document.getElementById('modal-root')!;
     root.innerHTML = `<div class="backdrop" data-action="backdrop" ${staticBackdrop ? 'data-static="1"' : ''}>
-      <div class="modal panel-wood frame-inner ${cls}" onclick="event.stopPropagation()">${html}</div>
+      <div class="modal panel-wood frame-inner ${cls}" data-action="modal-surface">${html}</div>
     </div>`;
     root.style.display = 'block';
   }
@@ -890,7 +891,7 @@ export class UI {
     const render = () => {
       root.style.display = 'block';
       root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
-        <div class="modal panel-wood frame-inner" style="width:620px" onclick="event.stopPropagation()">
+        <div class="modal panel-wood frame-inner" style="width:620px" data-action="modal-surface">
           <div class="head"><h2>Bắt đầu câu chuyện</h2></div>
           <div class="body">
             <div class="field"><label>Tên của bạn</label><input type="text" id="player-name" placeholder="Người chủ tiệm" maxlength="24"></div>
@@ -930,7 +931,7 @@ export class UI {
     const root = document.getElementById('modal-root')!;
     root.style.display = 'block';
     root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
-      <div class="modal panel-wood frame-inner" style="width:680px;text-align:center" onclick="event.stopPropagation()">
+      <div class="modal panel-wood frame-inner" style="width:680px;text-align:center" data-action="modal-surface">
         <div style="padding:10px 6px">
           <div class="small" style="letter-spacing:.4em;color:var(--gold-2);text-transform:uppercase">Chương ${ch.n}</div>
           <h2 style="font-size:40px;margin:6px 0 14px;color:#f6e8c4">${esc(ch.name)}</h2>
@@ -948,7 +949,7 @@ export class UI {
     root.style.display = 'block';
     const feedback = (r.feedback ?? []).map((f) => `<div class="small" style="color:#6a4a2e">· ${esc(f)}</div>`).join('');
     root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
-      <div class="modal panel-paper report" style="width:760px" onclick="event.stopPropagation()">
+      <div class="modal panel-paper report" style="width:760px" data-action="modal-surface">
         <div style="padding:14px 18px">
           <div style="text-align:center;border-bottom:2px solid #8a6a44;padding-bottom:8px;margin-bottom:10px">
             <div class="small" style="letter-spacing:.3em;color:#8a5a2a;text-transform:uppercase">Sổ khóa sổ</div>
@@ -1000,7 +1001,7 @@ export class UI {
     root.style.display = 'block';
     const portrait = ev.portrait || (ev.kind === 'npc' ? '/assets/characters/portraits/player_neutral.png' : '');
     root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
-      <div class="modal panel-wood frame-inner" style="width:720px" onclick="event.stopPropagation()">
+      <div class="modal panel-wood frame-inner" style="width:720px" data-action="modal-surface">
         <div style="padding:8px 6px">
           <div style="display:flex;gap:16px;align-items:flex-start">
             ${portrait ? `<img src="${portrait}" style="width:120px;height:120px;border:2px solid #8a6238;box-shadow:0 0 0 1px #241711;flex:none">` : ''}
@@ -1045,7 +1046,7 @@ export class UI {
     const root = document.getElementById('modal-root')!;
     root.style.display = 'block';
     root.innerHTML = `<div class="backdrop" data-action="backdrop" data-static="1">
-      <div class="modal panel-wood frame-inner ending" style="width:820px" onclick="event.stopPropagation()">
+      <div class="modal panel-wood frame-inner ending" style="width:820px" data-action="modal-surface">
         <div style="padding:18px 22px">
           <div class="sub">${e.id === 'decline' ? 'Một kết thúc' : 'Kết thúc'}</div>
           <h2>${esc(e.title)}</h2>

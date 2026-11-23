@@ -6,7 +6,9 @@ const dom = new JSDOM(
   `<!doctype html><html><body><div id="app"><div id="stage">
      <canvas id="scene" width="1280" height="720"></canvas><div id="ui"></div><div id="loading"><div class="load-inner"><div class="load-title">Cửa Hàng 1945</div><div class="load-bar"><i id="loading-bar"></i></div></div></div>
    </div></div></body></html>`,
-  { url: 'http://localhost/', pretendToBeVisual: true },
+  // runScripts: 'dangerously' makes jsdom execute inline on* attributes exactly
+  // like a browser — without it a swallowed click looks like a working one.
+  { url: 'http://localhost/', pretendToBeVisual: true, runScripts: 'dangerously' },
 );
 
 // ---------------------------------------------------------------- globals --
@@ -96,7 +98,7 @@ async function main() {
   check(game.screen === 'playing', 'screen switches to playing');
   check(!!$('.modal'), 'chapter card modal opens');
   check(($('.modal')?.textContent ?? '').includes('Chương 1'), 'chapter 1 card shown');
-  game.afterChapter();
+  click('[data-action="chapter-continue"]');
   await sleep(10);
   check(!!$('.modal'), 'intro event modal opens');
   check(($('.modal')?.textContent ?? '').includes('Căn tiệm của cha'), 'intro event text shown');
@@ -311,7 +313,7 @@ async function main() {
   // =========================================================================
   console.log('\n=== PART 2: negotiation, upgrades, travel, ending ===');
   game.startNew('Thương Nhân', 'normal');
-  game.afterChapter();
+  click('[data-action="chapter-continue"]');
   await sleep(10);
   // dismiss the intro event
   const introBtn = $('[data-action="event-choice"]') as HTMLElement | null;
@@ -530,6 +532,17 @@ async function main() {
     click('[data-action="confirm-yes"]');
     await sleep(10);
     check(game.world.state.inventory.length === before - 1, 'confirming discards the stack');
+  }
+
+  console.log('\n— no inline handlers (they swallow delegated clicks) —');
+  {
+    const fs = await import('node:fs');
+    const files = ['src/game/ui.ts', 'src/game/panels.ts', 'src/game/game.ts', 'index.html'];
+    // HTML attribute form only (onfoo="..."), so TS fields like onHide don't match
+    const offenders = files.filter((f) => /\son[a-z]+\s*=\s*["']/i.test(fs.readFileSync(f, 'utf8')));
+    check(offenders.length === 0, 'no inline on*= handlers in ' + files.join(', ') + (offenders.length ? ' -> ' + offenders.join(', ') : ''));
+    check(!document.querySelector('#ui [onclick]'), 'no [onclick] in the rendered UI');
+    check(!!document.querySelector('[data-action="modal-surface"]'), 'modal surfaces are marked with a data-action instead');
   }
 
   console.log('\n— title: panels, continue, autosave —');

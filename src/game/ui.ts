@@ -226,8 +226,8 @@ export class UI {
       case 'close-modal': this.closeModal(); break;
       case 'modal-surface': break; // the modal's own background: swallow the click
       case 'tab': this.invTab = d.tab as 'warehouse' | 'shelves'; this.openInventory(); break;
-      case 'filter': this.filter = d.cat!; this.openInventory(); break;
-      case 'sort': this.sortMode = d.mode!; this.world.autoSort(this.sortMode as never); this.openInventory(); break;
+      case 'filter': this.filter = d.cat!; this.refreshPanel(); break;
+      case 'sort': this.sortMode = d.mode!; this.world.autoSort(this.sortMode as never); this.refreshPanel(); break;
       case 'select-item': this.selectedUid = Number(d.uid); this.openInventory(); break;
       case 'split': if (this.selectedUid !== null) { const inv = this.state.inventory.find((i) => i.uid === this.selectedUid); if (inv) { this.world.splitStack(inv.uid, Math.max(1, Math.floor(inv.qty / 2))); this.openInventory(); } } break;
       case 'to-shelf': this.openShelfPicker(Number(d.uid)); break;
@@ -237,7 +237,7 @@ export class UI {
       case 'stock-pick': this.world.restockShelf(Number(d.shelf), Number(d.uid), Number(d.qty || 999)); this.closeModal(); this.openInventory(); break;
       case 'markup': {
         const sh = this.state.shelves.find((s) => s.id === Number(d.shelf));
-        if (sh) { sh.markup = Math.max(-0.3, Math.min(0.6, Math.round((sh.markup + Number(d.delta)) * 100) / 100)); this.openInventory(); }
+        if (sh) { sh.markup = Math.max(-0.3, Math.min(0.6, Math.round((sh.markup + Number(d.delta)) * 100) / 100)); this.refreshPanel(); }
         break;
       }
       case 'markup-quick': {
@@ -699,10 +699,18 @@ export class UI {
   // --------------------------------------------------------------- modals --
   openModal(html: string, cls = '', staticBackdrop = false) {
     const root = document.getElementById('modal-root')!;
+    // Re-rendering a panel (filter chip, markup +, sort...) must not throw the
+    // player back to the top of a long list: carry the scroll position over.
+    const prevBody = root.querySelector('.modal .body') as HTMLElement | null;
+    const keepScroll = prevBody ? prevBody.scrollTop : 0;
     root.innerHTML = `<div class="backdrop" data-action="backdrop" ${staticBackdrop ? 'data-static="1"' : ''}>
       <div class="modal panel-wood frame-inner ${cls}" data-action="modal-surface">${html}</div>
     </div>`;
     root.style.display = 'block';
+    if (keepScroll > 0) {
+      const body = root.querySelector('.modal .body') as HTMLElement | null;
+      if (body) body.scrollTop = keepScroll;
+    }
   }
 
   closeModal() {

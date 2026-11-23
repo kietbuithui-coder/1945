@@ -545,6 +545,28 @@ async function main() {
     check(!!document.querySelector('[data-action="modal-surface"]'), 'modal surfaces are marked with a data-action instead');
   }
 
+  console.log('\n— prices panel stays put when adjusting markup —');
+  {
+    game.ui.openPanel('prices');
+    await sleep(10);
+    const panelName = () => (document.querySelector('.modal h2')?.textContent ?? '');
+    check(panelName().includes('Bảng giá'), 'prices panel opens');
+    const shelfId = Number((document.querySelector('[data-action="markup"]') as HTMLElement)?.dataset.shelf);
+    const sh = game.world.state.shelves.find((x) => x.id === shelfId);
+    const before = sh ? sh.markup : NaN;
+    click('[data-action="markup"][data-delta="0.05"]');
+    await sleep(10);
+    check(panelName().includes('Bảng giá'), 'still on the prices panel after clicking + (was jumping to inventory)');
+    check(!!sh && Math.abs(sh.markup - (before + 0.05)) < 1e-9, 'markup increased by 5%: ' + before + ' -> ' + (sh?.markup ?? NaN));
+    // the filter chips inside the prices panel must filter prices, not switch panels
+    click('[data-action="filter"][data-cat="food"]');
+    await sleep(10);
+    check(panelName().includes('Bảng giá'), 'still on the prices panel after a filter chip');
+    check((game.ui as any).filter === 'food', 'filter applied');
+    click('[data-action="close-modal"]');
+    await sleep(10);
+  }
+
   console.log('\n— input layer survives stopPropagation —');
   {
     // simulate the worst case: something inside the modal swallows the click

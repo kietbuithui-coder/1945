@@ -364,6 +364,8 @@ h1, h2, h3, .serif {
 .slot:hover { background-image: url('/assets/ui/slots/slot_hover.png'); }
 .slot.selected { background-image: url('/assets/ui/slots/slot_selected.png'); }
 .slot.dragover { filter: brightness(1.5); outline: 2px solid var(--gold-2); }
+.shelf-card.dragover { filter: brightness(1.35); outline: 2px solid var(--gold-2); outline-offset: -2px; }
+.shelf-card { transition: filter 0.1s ease, outline-color 0.1s ease; }
 .slot.locked { background-image: url('/assets/ui/slots/slot_locked.png'); cursor: not-allowed; }
 .slot img.item-icon {
   position: absolute;

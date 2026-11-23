@@ -1,6 +1,7 @@
 // Game controller: owns the world, the scene and the UI, and runs the day loop.
 import { World, newGame, fmtMoney, SAVE_PREFIX } from './systems';
 import { Scene, preload, splitAssetUrls } from './scene';
+import { BUILD } from './version';
 import { UI } from './ui';
 import { audio } from './audio';
 import { eventById, EVENTS, MAIN_STORY_IDS, ARC_IDS } from './events';
@@ -76,6 +77,8 @@ export class Game {
     this.raf = requestAnimationFrame(this.loop);
     window.addEventListener('pagehide', this.onHide);
     document.addEventListener('visibilitychange', this.onHide);
+    this.warnIfStale();
+    console.info(`Cửa Hàng 1945 · bản ${BUILD}`);
     const { critical, rest } = splitAssetUrls();
     try {
       await preload(critical, (done, total) => {
@@ -95,6 +98,19 @@ export class Game {
     audio.stopRain();
     window.removeEventListener('pagehide', this.onHide);
     window.removeEventListener('visibilitychange', this.onHide);
+  }
+
+  /** If this tab was opened before a rebuild, tell the player to reload instead
+   *  of letting them click buttons that no longer exist. */
+  private warnIfStale() {
+    try {
+      const KEY = 'vn1945.build';
+      const seen = localStorage.getItem(KEY);
+      localStorage.setItem(KEY, BUILD);
+      if (seen && seen !== BUILD) {
+        this.ui.toast('Đã có bản mới — tải lại trang (Ctrl+Shift+R) để cập nhật.', 'info');
+      }
+    } catch { /* storage unavailable: nothing to warn about */ }
   }
 
   /** Keep the player's progress when the tab is closed or hidden, and stop the

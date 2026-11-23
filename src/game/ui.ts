@@ -111,17 +111,29 @@ export class UI {
       const move = (ev: PointerEvent) => {
         if (!this.dragMoved && Math.abs(ev.clientX - e.clientX) + Math.abs(ev.clientY - e.clientY) > 6) this.dragMoved = true;
         if (this.ghost) { this.ghost.style.left = ev.clientX - 32 + 'px'; this.ghost.style.top = ev.clientY - 32 + 'px'; }
-        document.querySelectorAll('.slot.dragover').forEach((x) => x.classList.remove('dragover'));
-        const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.slot[data-slot]') as HTMLElement | null;
+        document.querySelectorAll('.slot.dragover, .shelf-card.dragover').forEach((x) => x.classList.remove('dragover'));
+        const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+        const under = hit?.closest('.slot[data-slot]') as HTMLElement | null;
+        const underShelf = hit?.closest('.shelf-card[data-shelf]') as HTMLElement | null;
         if (under) under.classList.add('dragover');
+        else if (underShelf) underShelf.classList.add('dragover');
       };
       const up = (ev: PointerEvent) => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         this.ghost?.remove();
         this.ghost = null;
-        const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.slot[data-slot]') as HTMLElement | null;
-        document.querySelectorAll('.slot.dragover').forEach((x) => x.classList.remove('dragover'));
+        const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+        const under = hit?.closest('.slot[data-slot]') as HTMLElement | null;
+        const underShelf = hit?.closest('.shelf-card[data-shelf]') as HTMLElement | null;
+        document.querySelectorAll('.slot.dragover, .shelf-card.dragover').forEach((x) => x.classList.remove('dragover'));
+        // drop onto a shelf strip = put the stack on that shelf
+        if (this.dragMoved && underShelf && this.dragUid !== null) {
+          this.world.restockShelf(Number(underShelf.dataset.shelf), this.dragUid, 999);
+          this.dragUid = null;
+          this.refreshPanel();
+          return;
+        }
         if (this.dragMoved && under && this.dragUid !== null) {
           const targetSlot = Number(under.dataset.slot);
           const dragged = this.state.inventory.find((i) => i.uid === this.dragUid);

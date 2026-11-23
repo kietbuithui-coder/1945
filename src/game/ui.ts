@@ -1,5 +1,6 @@
 // DOM UI core: HUD, dock, modals, trade, screens.
 import type { Game } from './game';
+import { BUILD } from './version';
 import type { World } from './systems';
 import {
   ITEMS, NPCS, QUALITY_LABEL, QUALITY_COLOR, QUALITY_MULT, DIFFICULTY, CHAPTERS,
@@ -69,17 +70,20 @@ export class UI {
 
   // ------------------------------------------------------------- plumbing --
   private bind() {
-    this.root.addEventListener('click', (e) => {
-      const t = (e.target as HTMLElement).closest('[data-action]') as HTMLElement | null;
-      if (!t) return;
+    // The action router listens in the CAPTURE phase on `document`: nothing inside
+    // the UI (inline handler, stopPropagation, a component that swallows clicks)
+    // can prevent a button from working. Every button in the game is a
+    // [data-action], so this one listener is the whole input layer.
+    document.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement).closest?.('[data-action]') as HTMLElement | null;
+      if (!t || !this.root.contains(t)) return;
       const action = t.dataset.action!;
       if (action === 'backdrop') {
         if (!t.dataset.static) this.closeModal();
         return;
       }
-      e.stopPropagation();
       this.handleAction(action, { ...t.dataset } as Record<string, string>);
-    });
+    }, true);
     this.root.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
       if (t.dataset.field) this.handleInput(t.dataset.field, t.value);
@@ -864,7 +868,7 @@ export class UI {
         <button class="btn" data-action="open-panel" data-panel="save">Lưu / Tải</button>
         <button class="btn" data-action="open-panel" data-panel="settings">Cài đặt</button>
       </div>
-      <div class="title-foot">MỘT TRÒ CHƠI MÔ PHỎNG CỬA HÀNG · LỊCH SỬ VIỆT NAM 1945</div>
+      <div class="title-foot">MỘT TRÒ CHƠI MÔ PHỎNG CỬA HÀNG · LỊCH SỬ VIỆT NAM 1945 · bản ${BUILD}</div>
     </div>`;
     this.renderDock();
     this.renderHUD();

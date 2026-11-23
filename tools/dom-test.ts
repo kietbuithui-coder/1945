@@ -545,6 +545,24 @@ async function main() {
     check(!!document.querySelector('[data-action="modal-surface"]'), 'modal surfaces are marked with a data-action instead');
   }
 
+  console.log('\n— input layer survives stopPropagation —');
+  {
+    // simulate the worst case: something inside the modal swallows the click
+    game.openInventory ? game.openInventory() : (game.ui as any).openInventory();
+    await sleep(10);
+    const modalEl = document.querySelector('.modal') as HTMLElement | null;
+    check(!!modalEl, 'inventory modal open for the propagation test');
+    modalEl?.setAttribute('onclick', 'event.stopPropagation()');
+    click('[data-action="filter"][data-cat="household"]');
+    await sleep(10);
+    check((game.ui as any).filter === 'household', 'filter chip still works with a click-swallowing ancestor');
+    const again = document.querySelector('.modal') as HTMLElement | null;
+    again?.setAttribute('onclick', 'event.stopPropagation()');
+    click('[data-action="close-modal"]');
+    await sleep(10);
+    check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
+  }
+
   console.log('\n— title: panels, continue, autosave —');
   {
     // an autosave must exist as soon as a day has started, so the player can

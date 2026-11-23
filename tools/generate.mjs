@@ -340,13 +340,16 @@ fs.writeFileSync(path.join(ROOT, 'src/data/npcs.json'), JSON.stringify(NPCS.map(
 })), null, 2));
 
 // --------------------------------------------------------------- manifest ---
-const groups = {};
-for (const m of manifest) {
-  const g = m.group || m.file.split('/').slice(0, 3).join('/');
-  groups[g] = groups[g] || { count: 0, files: [] };
-  groups[g].count++;
-  groups[g].files.push(m.file);
-}
+const collectGroups = () => {
+  const g = {};
+  for (const m of manifest) {
+    const key = m.group || m.file.replace(/^assets\//, '').split('/').slice(0, 2).join('/');
+    g[key] = g[key] || { count: 0, files: [] };
+    g[key].count++;
+    g[key].files.push(m.file);
+  }
+  return g;
+};
 // --------------------------------------------------------------- enrich --
 // Every entry gets a stable id, a human usage line, its animation frames and
 // the pivot the renderer uses.
@@ -406,6 +409,20 @@ for (const m of manifest) {
       : second === 'overlays'
         ? 'time-of-day / weather tint plate, multiply over any background'
         : 'scene background, 2x nearest-neighbour';
+    if (second === 'overlays' && !m.group) {
+      m.group = 'backgrounds/overlays';
+      const PLATE_DESC = {
+        dawn: 'Tint bình minh (multiply)',
+        morning: 'Tint sáng sớm (multiply)',
+        day: 'Tint ban ngày (multiply)',
+        dusk: 'Tint hoàng hôn (multiply)',
+        night: 'Tint ban đêm (multiply)',
+        rain: 'Tint trời mưa (multiply)',
+        storm: 'Tint bão (multiply)',
+        lamp_glow: 'Quầng đèn dầu, cộng sáng (lighter)',
+      };
+      m.description = PLATE_DESC[name] || m.description || 'Lớp phủ ánh sáng';
+    }
     m.pivot = { x: 0, y: 0 };
   } else if (isUi) {
     m.id = `ui_${stem(second)}_${name}`;
@@ -454,8 +471,8 @@ const manifestDoc = {
     background: '640x360 source, 1280x720 on screen',
     ui: 'authored 1x, exported 2x (CSS pixels = source pixels)',
   },
-  stats: { files: stats.files, bytes: stats.bytes, groups: Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.count])) },
-  groups,
+  stats: { files: stats.files, bytes: stats.bytes, groups: Object.fromEntries(Object.entries(collectGroups()).map(([k, v]) => [k, v.count])) },
+  groups: collectGroups(),
   assets: manifest,
 };
 fs.mkdirSync(path.join(ASSETS, 'manifests'), { recursive: true });

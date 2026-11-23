@@ -1,7 +1,7 @@
 {
   "name": "Vietnam 1945 — Game Asset Pack",
   "version": "1.0.0",
-  "generated": "2026-11-23T10:08:23.930Z",
+  "generated": "2026-11-23T10:14:39.706Z",
   "artBible": "docs/ART_BIBLE.md",
   "palette": {
     "ink": "#241711",
@@ -34,7 +34,7 @@
     "files": 799,
     "bytes": 8917562,
     "groups": {
-      "assets/backgrounds/overlays": 8,
+      "backgrounds/overlays": 12,
       "items/food": 37,
       "items/household": 32,
       "items/materials": 16,
@@ -70,7 +70,6 @@
       "characters/villager_b": 14,
       "characters/villager_c": 14,
       "backgrounds": 26,
-      "backgrounds/overlays": 4,
       "ui": 78,
       "tilesets": 1,
       "effects": 15,
@@ -78,8 +77,8 @@
     }
   },
   "groups": {
-    "assets/backgrounds/overlays": {
-      "count": 8,
+    "backgrounds/overlays": {
+      "count": 12,
       "files": [
         "assets/backgrounds/overlays/dawn.png",
         "assets/backgrounds/overlays/morning.png",
@@ -88,7 +87,11 @@
         "assets/backgrounds/overlays/night.png",
         "assets/backgrounds/overlays/rain.png",
         "assets/backgrounds/overlays/storm.png",
-        "assets/backgrounds/overlays/lamp_glow.png"
+        "assets/backgrounds/overlays/lamp_glow.png",
+        "assets/backgrounds/shop_level2.png",
+        "assets/backgrounds/shop_level3.png",
+        "assets/backgrounds/shop_level4.png",
+        "assets/backgrounds/shop_level5.png"
       ]
     },
     "items/food": {
@@ -954,15 +957,6 @@
         "assets/backgrounds/title.png"
       ]
     },
-    "backgrounds/overlays": {
-      "count": 4,
-      "files": [
-        "assets/backgrounds/shop_level2.png",
-        "assets/backgrounds/shop_level3.png",
-        "assets/backgrounds/shop_level4.png",
-        "assets/backgrounds/shop_level5.png"
-      ]
-    },
     "ui": {
       "count": 78,
       "files": [
@@ -1093,6 +1087,8 @@
       "h": 360,
       "bytes": 1573,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint bình minh (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1107,6 +1103,8 @@
       "h": 360,
       "bytes": 1570,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint sáng sớm (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1121,6 +1119,8 @@
       "h": 360,
       "bytes": 1572,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint ban ngày (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1135,6 +1135,8 @@
       "h": 360,
       "bytes": 1570,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint hoàng hôn (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1149,6 +1151,8 @@
       "h": 360,
       "bytes": 1573,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint ban đêm (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1163,6 +1167,8 @@
       "h": 360,
       "bytes": 1573,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint trời mưa (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1177,6 +1183,8 @@
       "h": 360,
       "bytes": 1572,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Tint bão (multiply)",
       "pivot": {
         "x": 0,
         "y": 0
@@ -1191,6 +1199,8 @@
       "h": 360,
       "bytes": 13727,
       "usage": "time-of-day / weather tint plate, multiply over any background",
+      "group": "backgrounds/overlays",
+      "description": "Quầng đèn dầu, cộng sáng (lighter)",
       "pivot": {
         "x": 0,
         "y": 0

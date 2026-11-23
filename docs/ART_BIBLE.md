@@ -224,7 +224,7 @@ autotile corners. Used by the map screen and by the exterior scenes.
 
 | Group | Files |
 | --- | --- |
-| Backgrounds | 26 painted + 4 tier overlays + 8 light/weather plates |
+| Backgrounds | 26 painted + 4 tier overlays + 8 light/weather plates (12 plates total) |
 | Characters (sprites) | 29 × 14 = 406 |
 | Portraits | 27 × 6 = 162 |
 | Items | 122 |

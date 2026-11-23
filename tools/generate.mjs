@@ -159,8 +159,58 @@ for (const npc of allChars) {
 
 // -------------------------------------------------------------- backgrounds --
 console.log('• backgrounds');
+/** A scene plate must be fully opaque: the canvas is cleared to black behind it,
+ *  so any pixel left translucent would punch a dark hole in the painting.
+ *  Holes are inpainted by extending the nearest painted pixel in the same row
+ *  (falling back to the row above), which reads as a smear of the surroundings. */
+function flattenOpaque(s) {
+  const W = s.w, H = s.h, d = s.data;
+  // composite translucent pixels over their row context first
+  const out = new Uint32Array(W * H);
+  let prevRow = null;
+  for (let y = 0; y < H; y++) {
+    const row = y * W;
+    const known = [];
+    for (let x = 0; x < W; x++) {
+      const c = d[row + x];
+      if (((c >>> 24) & 255) === 255) known.push(x);
+    }
+    if (known.length === 0) {
+      if (prevRow) for (let x = 0; x < W; x++) out[row + x] = prevRow[x];
+      else for (let x = 0; x < W; x++) out[row + x] = 0xff000000;
+      prevRow = out.slice(row, row + W);
+      continue;
+    }
+    const last = known[known.length - 1];
+    for (let x = 0; x < W; x++) {
+      const c = d[row + x];
+      const a = (c >>> 24) & 255;
+      if (a === 255) { out[row + x] = c; continue; }
+      // nearest painted neighbour in this row
+      let nl = -1, nr = -1;
+      for (let k = known.length - 1; k >= 0; k--) { if (known[k] < x) { nl = known[k]; break; } }
+      for (let k = 0; k < known.length; k++) { if (known[k] > x) { nr = known[k]; break; } }
+      let src;
+      if (nl >= 0 && nr >= 0) src = (x - nl <= nr - x) ? d[row + nl] : d[row + nr];
+      else if (nl >= 0) src = d[row + nl];
+      else if (nr >= 0) src = d[row + nr];
+      else src = 0xff000000;
+      if (a > 0) {
+        const t = a / 255;
+        const r = Math.round((c & 255) * t + (src & 255) * (1 - t));
+        const g = Math.round(((c >>> 8) & 255) * t + ((src >>> 8) & 255) * (1 - t));
+        const b = Math.round(((c >>> 16) & 255) * t + ((src >>> 16) & 255) * (1 - t));
+        out[row + x] = (0xff << 24 | b << 16 | g << 8 | r) >>> 0;
+      } else out[row + x] = src | 0xff000000;
+    }
+    prevRow = out.slice(row, row + W);
+  }
+  for (let i = 0; i < d.length; i++) d[i] = out[i] >>> 0;
+}
+
 for (const scene of SCENES) {
   const s = scene.fn();
+  flattenOpaque(s);
   const e = save(`backgrounds/${scene.id}.png`, s);
   Object.assign(e, { group: 'backgrounds', description: scene.name, usage: 'scene background, 2x nearest-neighbour' });
 }

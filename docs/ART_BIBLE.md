@@ -22,6 +22,7 @@ rice and lamp oil, and the quiet of a town where nothing is certain.
 | **No modern objects** | No plastic, no neon, no zippers, no printed brand labels, no wristwatches on commoners, no motorcycles. |
 | **No text baked into art** | Letters are drawn by the UI font. The only exception is the hand-painted shop sign, which uses abstract brush strokes, not real words. |
 | **No gore, no shock imagery** | Hardship is shown through empty shelves, patched clothing and rain — never through bodies or violence. |
+| **Scene plates are 100 % opaque** | A background must have alpha 255 on every pixel. Glows, light shafts, rain and haze are **composited** over it (`blend`/`polyBlend`/`blendRect`), never written as translucent pixels — the canvas behind a plate is black, so a translucent pixel reads as a hole. `tools/generate.mjs` flattens any leftover as a safety net. |
 | **Not a copy of *Probably Stolen*** | The inspiration is the *feel* (counter-trading, tactile inventory, weather). All pixels here are original. |
 
 ---
@@ -217,6 +218,7 @@ autotile corners. Used by the map screen and by the exterior scenes.
 - Don't depict famine, corpses or violence.
 - Don't use anime proportions, cel shading or vector outlines.
 - Don't upscale with smoothing — ever.
+- Don't leave translucent pixels in a background plate (see core rules) — sprites and UI may be transparent, scenes may not.
 
 ---
 

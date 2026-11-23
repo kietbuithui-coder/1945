@@ -128,14 +128,16 @@ export class Surface {
     for (let yy = y0; yy <= y1; yy++) { this.set(x, yy, col); this.set(x + w - 1, yy, col); }
   }
 
+  // line/rect helpers composite with source alpha: an opaque colour writes
+  // exactly like set(), a translucent one overlays instead of cutting a hole.
   hline(x, y, w, c) {
     const col = hex(c);
-    for (let xx = Math.max(0, x); xx < Math.min(this.w, x + w); xx++) this.set(xx, y, col);
+    for (let xx = Math.max(0, x); xx < Math.min(this.w, x + w); xx++) this.blend(xx, y, col);
   }
 
   vline(x, y, h, c) {
     const col = hex(c);
-    for (let yy = Math.max(0, y); yy < Math.min(this.h, y + h); yy++) this.set(x, yy, col);
+    for (let yy = Math.max(0, y); yy < Math.min(this.h, y + h); yy++) this.blend(x, yy, col);
   }
 
   line(x0, y0, x1, y1, c) {
@@ -144,7 +146,7 @@ export class Surface {
     let dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     let err = dx + dy;
     for (;;) {
-      this.set(x0, y0, col);
+      this.blend(x0, y0, col);
       if (x0 === x1 && y0 === y1) break;
       const e2 = 2 * err;
       if (e2 >= dy) { err += dy; x0 += sx; }
@@ -158,6 +160,16 @@ export class Surface {
     for (let y = -ry; y <= ry; y++) {
       const span = Math.floor(rx * Math.sqrt(1 - (y * y) / (ry * ry)));
       for (let x = -span; x <= span; x++) this.set(cx + x, cy + y, col);
+    }
+  }
+
+  /** ellipse() composited with source alpha (for glows and haze over a plate). */
+  blendEllipse(cx, cy, rx, ry, c) {
+    const col = hex(c);
+    if (rx <= 0 || ry <= 0) return;
+    for (let y = -ry; y <= ry; y++) {
+      const span = Math.floor(rx * Math.sqrt(1 - (y * y) / (ry * ry)));
+      for (let x = -span; x <= span; x++) this.blend(cx + x, cy + y, col);
     }
   }
 
@@ -190,6 +202,28 @@ export class Surface {
       for (let i = 0; i + 1 < xs.length; i += 2) {
         const x0 = Math.round(xs[i]), x1 = Math.round(xs[i + 1]);
         for (let x = Math.max(0, x0); x <= Math.min(this.w - 1, x1); x++) this.data[y * this.w + x] = col;
+      }
+    }
+  }
+
+  /** Like poly(), but composites with the source alpha instead of replacing the
+   *  pixel — required for translucent light passes over an opaque plate. */
+  polyBlend(points, c) {
+    const col = hex(c);
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of points) { minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); }
+    for (let y = Math.max(0, Math.floor(minY)); y <= Math.min(this.h - 1, Math.ceil(maxY)); y++) {
+      const xs = [];
+      for (let i = 0; i < points.length; i++) {
+        const a = points[i], b = points[(i + 1) % points.length];
+        if ((a[1] <= y && b[1] > y) || (b[1] <= y && a[1] > y)) {
+          xs.push(a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0]));
+        }
+      }
+      xs.sort((m, n) => m - n);
+      for (let i = 0; i + 1 < xs.length; i += 2) {
+        const x0 = Math.round(xs[i]), x1 = Math.round(xs[i + 1]);
+        for (let x = Math.max(0, x0); x <= Math.min(this.w - 1, x1); x++) this.blend(x, y, col);
       }
     }
   }

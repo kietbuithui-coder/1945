@@ -314,7 +314,7 @@ export function hangingHerbs(s, x, y, rng = Math.random) {
 export function dustMotes(s, w, h, rng = Math.random, count = 40) {
   for (let i = 0; i < count; i++) {
     const x = Math.floor(rng() * w), y = Math.floor(rng() * h);
-    s.set(x, y, withAlpha(hex('#ffe6a8'), 40 + Math.floor(rng() * 70)));
+    s.blend(x, y, withAlpha(hex('#ffe6a8'), 40 + Math.floor(rng() * 70)));
   }
 }
 
@@ -330,5 +330,5 @@ export function vignette(s, strength = 0.65) {
 }
 
 export function lightShaft(s, x, y, w, h, color = '#ffe6a8', alpha = 30) {
-  s.poly([[x, y], [x + w, y], [x + w + h * 0.35, y + h], [x - h * 0.1, y + h]], withAlpha(hex(color), alpha));
+  s.polyBlend([[x, y], [x + w, y], [x + w + h * 0.35, y + h], [x - h * 0.1, y + h]], withAlpha(hex(color), alpha));
 }

@@ -216,7 +216,7 @@ export function shopLevelOverlay(level) {
   if (level >= 3) {
     // glass cabinet on right
     s.rect(560, 120, 66, 150, '#3a281c');
-    s.rect(563, 123, 60, 144, withAlpha(hex('#a8c0b8'), 60));
+    s.blendRect(563, 123, 60, 144, withAlpha(hex('#a8c0b8'), 60));
     s.frame(563, 123, 60, 144, '#8a6238');
     s.vline(593, 123, 144, '#8a6238');
     s.hline(563, 195, 60, '#8a6238');
@@ -260,7 +260,7 @@ export function shopExterior(mode = 'dusk') {
   else vgrad(s, 0, 0, 640, 250, '#3a4a68', '#d98a4a');
   // clouds
   for (let i = 0; i < 10; i++) {
-    s.ellipse(Math.floor(rng() * 640), 20 + Math.floor(rng() * 130), 30 + Math.floor(rng() * 40), 6 + Math.floor(rng() * 6), withAlpha(hex(night ? '#2a3448' : '#c9a88a'), 50));
+    s.blendEllipse(Math.floor(rng() * 640), 20 + Math.floor(rng() * 130), 30 + Math.floor(rng() * 40), 6 + Math.floor(rng() * 6), withAlpha(hex(night ? '#2a3448' : '#c9a88a'), 50));
   }
   // distant roofs
   for (let x = 0; x < 640; x += 52) {
@@ -282,12 +282,12 @@ export function shopExterior(mode = 'dusk') {
   roofTiles(s, fx - 20, 92, fw + 40, 16, rng);
   // signboard
   signBoard(s, fx + 70, 100, 110, 30, '#5a3d24');
-  s.rect(fx + 80, 108, 90, 3, withAlpha(hex('#e6d3a3'), 120));
-  s.rect(fx + 88, 116, 74, 3, withAlpha(hex('#e6d3a3'), 100));
+  s.blendRect(fx + 80, 108, 90, 3, withAlpha(hex('#e6d3a3'), 120));
+  s.blendRect(fx + 88, 116, 74, 3, withAlpha(hex('#e6d3a3'), 100));
   // window with warm light
   s.rect(fx + 30, 150, 80, 70, '#2a1e14');
   s.rect(fx + 34, 154, 72, 62, night ? '#ffcf6a' : '#f0b04a');
-  s.rect(fx + 34, 154, 72, 62, withAlpha(hex('#ffdf9a'), 90));
+  s.blendRect(fx + 34, 154, 72, 62, withAlpha(hex('#ffdf9a'), 90));
   s.vline(fx + 70, 154, 62, '#5a3d24');
   s.hline(fx + 34, 184, 72, '#5a3d24');
   s.frame(fx + 30, 150, 80, 70, '#3a281c');
@@ -322,7 +322,7 @@ export function shopExterior(mode = 'dusk') {
       const x = Math.floor(rng() * 640), y = Math.floor(rng() * 360);
       s.vline(x, y, 5, withAlpha(hex('#aebfc0'), 90));
     }
-    for (let i = 0; i < 6; i++) s.ellipse(Math.floor(rng() * 640), 300 + Math.floor(rng() * 50), 14, 3, withAlpha(hex('#8a9a9a'), 30));
+    for (let i = 0; i < 6; i++) s.blendEllipse(Math.floor(rng() * 640), 300 + Math.floor(rng() * 50), 14, 3, withAlpha(hex('#8a9a9a'), 30));
   }
   grade(s, night ? 0.7 : 1, night ? 0.75 : 0.98, night ? 0.9 : 0.95);
   vignette(s, 0.8);
@@ -335,7 +335,7 @@ export function market(mode = 'day') {
   const rng = rngFor('market' + mode);
   const dusk = mode === 'dusk';
   vgrad(s, 0, 0, 640, 220, dusk ? '#6a5a6a' : '#8a9a9a', dusk ? '#d98a4a' : '#c9c0a8');
-  for (let i = 0; i < 8; i++) s.ellipse(Math.floor(rng() * 640), 30 + Math.floor(rng() * 120), 30, 5, withAlpha(hex('#e8e0cc'), 50));
+  for (let i = 0; i < 8; i++) s.blendEllipse(Math.floor(rng() * 640), 30 + Math.floor(rng() * 120), 30, 5, withAlpha(hex('#e8e0cc'), 50));
   // distant trees
   for (let x = 0; x < 640; x += 40) {
     s.ellipse(x + 10, 210 - Math.floor(rng() * 20), 18, 12, '#4c5a32');
@@ -427,7 +427,7 @@ export function street(mode = 'day') {
   // puddles
   if (rain) {
     for (let i = 0; i < 5; i++) {
-      s.ellipse(Math.floor(rng() * 600), 320 + Math.floor(rng() * 30), 14 + Math.floor(rng() * 20), 3, withAlpha(hex('#8a9a9a'), 60));
+      s.blendEllipse(Math.floor(rng() * 600), 320 + Math.floor(rng() * 30), 14 + Math.floor(rng() * 20), 3, withAlpha(hex('#8a9a9a'), 60));
     }
   }
   // lamp post
@@ -622,7 +622,7 @@ export function riverDock(mode = 'day') {
     s.ellipse(x, 180 - Math.floor(rng() * 10), 18, 8, night ? '#101820' : '#3f5527');
   }
   // mist
-  for (let i = 0; i < 10; i++) s.ellipse(Math.floor(rng() * 640), 190 + Math.floor(rng() * 20), 50, 6, withAlpha(hex('#c9d0cc'), 30));
+  for (let i = 0; i < 10; i++) s.blendEllipse(Math.floor(rng() * 640), 190 + Math.floor(rng() * 20), 50, 6, withAlpha(hex('#c9d0cc'), 30));
   // water
   water(s, 0, 205, 640, 155, rng);
   // reflections
@@ -856,8 +856,8 @@ export function counterOutside(mode = 'day') {
   for (let i = 0; i < 4; i++) s.line(536, 84 + i * 55, 586, 80 + i * 55, '#4a3222');
   // hanging sign above
   signBoard(s, 230, 10, 180, 34, '#e6d3a3');
-  s.rect(248, 18, 144, 4, withAlpha(hex('#8a3a2a'), 160));
-  s.rect(260, 28, 120, 4, withAlpha(hex('#8a3a2a'), 130));
+  s.blendRect(248, 18, 144, 4, withAlpha(hex('#8a3a2a'), 160));
+  s.blendRect(260, 28, 120, 4, withAlpha(hex('#8a3a2a'), 130));
   // person outside silhouette
   s.ellipse(620, 300, 6, 7, '#8a5a36');
   s.rect(612, 306, 16, 24, '#5a4a3a');
@@ -873,7 +873,7 @@ export function titleArt() {
   // dusk sky
   vgrad(s, 0, 0, 640, 260, '#2a3450', '#c47a55');
   for (let i = 0; i < 8; i++) {
-    s.ellipse(Math.floor(rng() * 640), 40 + Math.floor(rng() * 160), 40, 6, withAlpha(hex('#e8c0a0'), 40));
+    s.blendEllipse(Math.floor(rng() * 640), 40 + Math.floor(rng() * 160), 40, 6, withAlpha(hex('#e8c0a0'), 40));
   }
   // moon
   s.ellipse(520, 60, 18, 18, '#f2e6c8');
@@ -900,7 +900,7 @@ export function titleArt() {
   // window light
   s.rect(420, 190, 80, 70, '#2a1e14');
   s.rect(424, 194, 72, 62, '#ffcf6a');
-  s.rect(424, 194, 72, 62, withAlpha(hex('#ffdf9a'), 100));
+  s.blendRect(424, 194, 72, 62, withAlpha(hex('#ffdf9a'), 100));
   s.vline(460, 194, 62, '#5a3d24');
   s.hline(424, 224, 72, '#5a3d24');
   s.frame(420, 190, 80, 70, '#3a281c');
@@ -922,7 +922,7 @@ export function titleArt() {
   s.poly([[280, 220], [268, 230], [292, 230]], '#c9a86a');
   // fireflies
   for (let i = 0; i < 24; i++) {
-    s.set(Math.floor(rng() * 640), 180 + Math.floor(rng() * 170), withAlpha(hex('#ffe6a8'), 60 + Math.floor(rng() * 120)));
+    s.blend(Math.floor(rng() * 640), 180 + Math.floor(rng() * 170), withAlpha(hex('#ffe6a8'), 60 + Math.floor(rng() * 120)));
   }
   vignette(s, 0.9);
   return s;

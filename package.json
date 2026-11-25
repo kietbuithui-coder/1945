@@ -8,9 +8,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "assets": "node tools/generate.mjs",
+    "assets:check": "tsx tools/check-assets.ts",
+    "assets": "npm run assets:check",
     "sim": "tsx tools/sim.ts",
-    "test": "npm run sim && tsx tools/dom-test.ts",
+    "test": "npm run typecheck && npm run assets:check && npm run sim && npm run dom-test",
     "dom-test": "tsx tools/dom-test.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -1,351 +1,267 @@
+// ── Cửa Hàng 1945 · shared contracts ───────────────────────────────────────
+// Mọi module đều nói chuyện qua các kiểu này. Không có state ẩn trong UI.
+
+export type Quality = 0 | 1 | 2 | 3; // Kém · Thường · Tốt · Đặc biệt
 export type Category = 'food' | 'household' | 'materials' | 'medicine' | 'valuables' | 'special';
+export type Weather = 'clear' | 'cloudy' | 'rain' | 'storm';
+export type Phase = 'title' | 'morning' | 'procure' | 'open' | 'report' | 'evening' | 'ending';
 export type Difficulty = 'story' | 'normal' | 'hard';
-export type Phase = 'morning' | 'open' | 'report' | 'evening' | 'ended';
-export type TimePhase = 'sang' | 'trua' | 'chieu' | 'toi';
-export type Weather = 'nang' | 'nang_nhieu' | 'am_u' | 'mua' | 'mua_to' | 'nong';
+export type Mood = 'neutral' | 'happy' | 'sad' | 'angry' | 'tired' | 'surprised';
+export type GridId = 'warehouse' | 'shelves';
 
 export interface ItemDef {
   id: string;
   name: string;
   cat: Category;
+  icon: string;          // relative to assets/items/
+  buy: number;           // giá nhập tham chiếu (đồng bạc)
+  sell: number;          // giá bán tham chiếu
+  vol: number;           // thể tích / đơn vị
+  weight: number;        // cân nặng / đơn vị
+  stack: number;         // tối đa một chồng
+  perish: number;        // số ngày trước hư; 0 = bền
+  tags: string[];        // staple, fresh, medicine, fuel, tool, rare, luxury, material, coupon…
   desc: string;
-  buy: number;
-  sell: number;
-  weight: number;
-  vol: number;
-  perish: number;
-  shelf: number;
-  icon: string;
 }
 
-export interface NeedDef { item: string; weight: number; min: number; max: number }
-
-export type Personality = 'kind' | 'stern' | 'shrewd' | 'proud' | 'gentle' | 'anxious' | 'cheerful' | 'quiet';
-
-export interface NpcDef {
-  id: string;
-  name: string;
-  age: number;
-  role: string;
-  bio: string;
-  portrait: string;
-  portraits: Record<string, string>;
-  sprite: string;
-  schedule: { rate: number; start: number; end: number };
-  needs: NeedDef[];
-  budget: [number, number];
-  priceSensitivity: number;
-  patience: number;
-  personality: Personality;
-  barter: { give: string; want: string; ratio: number }[];
-  arc?: string;
-  vendor?: boolean;
+/** Một chồng hàng. fresh = ngày còn lại (-1 nếu không hư). */
+export interface Stack {
+  uid: string;
+  item: string;
+  qty: number;
+  q: Quality;
+  fresh: number;
+  origin: string;
 }
 
-export interface SupplierDef {
+export interface Grid {
+  w: number;
+  h: number;
+  cells: (Stack | null)[];
+}
+
+export interface MarketRow {
+  supply: number;
+  demand: number;
+  flag: number;          // cú sốc giá có nguyên nhân, tự hồi về 0
+}
+
+export interface SupplierStock { qty: number; q: Quality }
+
+export interface SupplierState {
   id: string;
-  name: string;
-  role: string;
-  portrait: string;
-  location: string;
-  desc: string;
-  items: { item: string; min: number; max: number; priceMod: number }[];
+  stock: Record<string, SupplierStock>;
+  bond: number;
+  lastRestock: number;
   reliability: number;
-  leadDays: number;
-  restock: number;
-  trustGain: number;
-}
-
-export interface LocationDef {
-  id: string;
-  name: string;
-  desc: string;
-  bg: string;
-  unlockDay: number;
-  actions: { id: string; label: string; desc: string; kind: 'shop' | 'talk' | 'explore' | 'quest' }[];
-}
-
-export interface UpgradeDef {
-  id: string;
-  name: string;
-  desc: string;
-  cost: number;
-  level: number;
-  category: 'shelf' | 'storage' | 'counter' | 'lamp' | 'sign' | 'staff';
-  effect: string;
-  req?: { rep?: number; trust?: number; money?: number; day?: number };
-}
-
-export interface QuestDef {
-  id: string;
-  name: string;
-  giver: string;
-  desc: string;
-  stages: { text: string; objective: string; done: string }[];
-  type: 'story' | 'personal' | 'side';
-}
-
-export interface ChoiceDef {
-  label: string;
-  hint?: string;
-  require?: (s: GameState) => boolean;
-  effects: string[];
-  result: string;
-  rep?: number;
-  trust?: number;
-  money?: number;
-  item?: { id: string; qty: number };
-  flag?: string;
-  next?: string;
-}
-
-export interface EventDef {
-  id: string;
-  title: string;
-  text: string;
-  speaker?: string;
-  portrait?: string;
-  kind: 'story' | 'npc' | 'world' | 'market' | 'quest';
-  day?: number;
-  minDay?: number;
-  maxDay?: number;
-  once?: boolean;
-  weight?: number;
-  condition?: (s: GameState) => boolean;
-  choices: ChoiceDef[];
-}
-
-export interface TxRecord {
-  day: number;
-  itemId: string;
-  qty: number;
-  price: number;
-  type: 'sale' | 'credit' | 'gift' | 'barter' | 'refused';
-}
-
-export interface NpcState {
-  id: string;
-  trust: number;
-  relationship: number;
-  met: boolean;
-  lastVisitDay: number;
-  visits: number;
-  purchases: number;
-  totalSpent: number;
-  flags: Record<string, number | boolean | string>;
-  history: TxRecord[];
-  questStage: number;
-  owed: number;
-}
-
-export interface InvItem {
-  uid: number;
-  itemId: string;
-  qty: number;
-  quality: number;
-  freshness: number;
-  slot: number;
-  acquiredDay: number;
-  cost: number;
-}
-
-export interface Shelf {
-  id: number;
-  itemId: string | null;
-  qty: number;
-  quality: number;
-  freshness: number;
-  capacity: number;
-  markup: number;
-  cost: number;
-}
-
-export interface Debt {
-  id: string;
-  kind: 'borrowed' | 'lent';
-  partyId: string;
-  partyName: string;
-  principal: number;
-  interest: number;
-  dueDay: number;
-  createdDay: number;
-  paid: number;
-  status: 'active' | 'paid' | 'overdue' | 'defaulted';
-  note?: string;
+  priceFactor: number;
+  delay: number;
+  location: string;
+  note: string;
 }
 
 export interface Delivery {
   id: string;
-  supplierId: string;
-  supplierName: string;
-  itemId: string;
+  supplier: string;
+  item: string;
   qty: number;
-  quality: number;
-  paid: number;
-  orderDay: number;
-  dueDay: number;
-  status: 'transit' | 'arrived' | 'delayed' | 'lost';
+  q: Quality;
+  cost: number;
+  due: number;
+  risk: number;
+  prepaid: boolean;
+  mode: 'cash' | 'barter' | 'order';
 }
 
-export interface CustomerOffer {
-  type: 'counter' | 'barter' | 'credit' | 'gift' | 'plea';
-  price?: number;
-  itemId?: string;
-  qty?: number;
-  text?: string;
+export interface Debt {
+  id: string;
+  who: string;
+  npc: string | null;
+  amount: number;
+  paid: number;
+  due: number;
+  kind: 'receivable' | 'payable';
+  history: string[];
+}
+
+export interface Relation {
+  trust: number;
+  bond: number;
+  visits: number;
+  lastDay: number;
+  helped: number;
+  refused: number;
+  history: string[];
+  flags: Record<string, number>;
+}
+
+export interface BarterOffer { item: string; qty: number; q: Quality }
+
+export interface Request {
+  item: string;
+  qty: number;
+  maxPrice: number;
+  urgency: number;       // 0..1
+  barter?: BarterOffer;
+  credit?: boolean;
+  note: string;
 }
 
 export interface Customer {
-  uid: number;
-  npcId: string;
+  id: string;
+  npc: string;
   name: string;
-  role: string;
   portrait: string;
-  itemId: string;
-  qty: number;
-  budget: number;
-  urgency: number;
-  patience: number;
-  maxPatience: number;
-  state: 'queue' | 'active' | 'served' | 'leaving';
-  mood: string;
-  offer: CustomerOffer | null;
-  x: number;
-  targetX: number;
-  arrivedAt: number;
-  lastOfferPrice: number;
-  history: string[];
-  barterItem?: string;
-  barterQty?: number;
+  sprite: string;
+  mood: Mood;
+  arrive: number;        // phút trong ngày
   line: string;
+  request: Request;
+  budget: number;
+  patience: number;      // giây thực ở 1x
+  /** Ngưỡng mặc cả cố định của khách: quyết định không đổi giữa lần đưa giá và lần chốt. */
+  haggle?: number;       // 0..1, lưu được cả save cũ (fallback theo id)
+  state: 'waiting' | 'active' | 'served' | 'left';
+  result: string;
+  arcStep: number;
 }
 
-export interface PlannedCustomer {
-  npcId: string;
-  itemId: string;
+export interface TradeLine {
+  uid: string;
+  grid: GridId;
+  cell: number;
+  item: string;
   qty: number;
-  hour: number;
-  spawned?: boolean;
+  q: Quality;
+  unit: number;
+}
+
+export type TradeMode = 'cash' | 'barter' | 'credit' | 'gift';
+
+export interface Reaction {
+  kind: 'accept' | 'haggle' | 'refuse' | 'cantPay' | 'askCredit' | 'barter' | 'leave';
+  text: string;
+  counter: number;
+  delta: number;
+}
+
+export interface Trade {
+  customerId: string;
+  lines: TradeLine[];
+  price: number;
+  mode: TradeMode;
+  discount: number;      // -0.3 .. 0.3
+  reaction: Reaction | null;
+  counter: number;
+  gift: { item: string; qty: number } | null;
+  barter: BarterOffer | null;
+  inspected: string[];
+  step: 'build' | 'quoted' | 'done';
 }
 
 export interface QuestState {
   id: string;
-  status: 'inactive' | 'active' | 'done' | 'failed';
-  stage: number;
-  choices: string[];
-  startedDay?: number;
+  status: 'locked' | 'active' | 'done' | 'failed';
+  step: number;
+  choice: string;
+  day: number;
 }
 
 export interface JournalEntry {
   day: number;
-  text: string;
   kind: 'story' | 'quest' | 'event' | 'sale' | 'system';
+  text: string;
+  meta: string;
 }
 
-export interface DayStats {
+export interface DayLog {
+  day: number;
   revenue: number;
   cost: number;
-  purchases: number;
-  profit: number;
-  itemsSold: number;
-  itemsBought: number;
-  customersServed: number;
-  customersLost: number;
-  gifts: number;
-  creditGiven: number;
-  spoiled: number;
-  fairDeals: number;
-  gouged: number;
-  helped: number;
+  spoilage: number;
+  debtIn: number;
+  debtOut: number;
   repDelta: number;
-  trustDelta: number;
-  familyMeal: number;
-  feedback: string[];
+  communityDelta: number;
+  trades: number;
+  served: number;
+  missed: number;
+  notes: string[];
 }
 
-export interface Totals {
-  revenue: number;
-  cost: number;
-  purchases: number;
-  profit: number;
-  itemsSold: number;
-  itemsBought: number;
-  customersServed: number;
-  customersLost: number;
-  gifts: number;
-  creditGiven: number;
-  debtsPaid: number;
-  spoiled: number;
-  fairDeals: number;
-  gouged: number;
-  helped: number;
+export interface Settings {
+  sound: boolean;
+  volume: number;
+  reduced: boolean;
+  autoSort: boolean;
+  autoPause: boolean;
 }
 
-export interface GameState {
+export interface World {
   version: number;
-  slot: number;
-  savedAt: number;
-  playSeconds: number;
-  player: {
-    name: string;
-    difficulty: Difficulty;
-    day: number;
-    chapter: number;
-    money: number;
-    reputation: number;
-    communityTrust: number;
-    familyHealth: number;
-    familyPantry: number;
-    flags: Record<string, number | boolean | string>;
-  };
-  time: {
-    hour: number;
-    minute: number;
-    phase: Phase;
-    paused: boolean;
-    speed: 1 | 2 | 3;
-  };
-  weather: { today: Weather; tomorrow: Weather; daysLeft: number };
-  calendar: { day: number; month: number; year: number };
-  inventory: InvItem[];
-  shelves: Shelf[];
-  warehouse: { cols: number; rows: number; weightCap: number };
-  npcs: Record<string, NpcState>;
-  quests: Record<string, QuestState>;
-  debts: Debt[];
-  deliveries: Delivery[];
-  suppliers: Record<string, { trust: number; stock: Record<string, number>; lastRestock: number; priceMod: number }>;
-  economy: { supply: Record<string, number>; demand: Record<string, number> };
-  customers: Customer[];
-  activeCustomer: number | null;
-  journal: JournalEntry[];
-  totals: Totals;
-  day: DayStats;
-  story: { chapter: number; flags: Record<string, number | boolean | string> };
-  settings: { sfx: number; music: number; autosave: boolean; hints: boolean };
-  rngSeed: number;
-  ending?: { id: string; title: string; text: string };
-  dayPlan: { customers: PlannedCustomer[]; eventIds: string[]; news: string[] };
-  upgrades: string[];
-  employees: string[];
+  seed: number;
+  rng: number;
+  difficulty: Difficulty;
+
+  day: number;
+  maxDays: number;
+  minute: number;
+  phase: Phase;
+  speed: number;
+  paused: boolean;
+
+  weather: Weather;
+  weatherNext: Weather;
+  forecast: string;
+
+  money: number;
+  rep: number;
+  community: number;
+  family: number;        // suất ăn dự trữ cho gia đình
+
   shopLevel: number;
-  shelfCount: number;
-  travel: { location: string; actionsLeft: number };
-  lastReport?: DayStats;
-  seenEvents: string[];
-  introDone: boolean;
-  chapterIntroSeen: number[];
+  upgrades: string[];
+  staff: string[];
+
+  warehouse: Grid;
+  shelves: Grid;
+
+  market: Record<string, MarketRow>;
+  suppliers: Record<string, SupplierState>;
+  deliveries: Delivery[];
+  debts: Debt[];
+
+  relations: Record<string, Relation>;
+  quests: Record<string, QuestState>;
+  journal: JournalEntry[];
+  eventsSeen: string[];
+  flags: Record<string, number>;
+  chapter: number;
+  ending: string | null;
+
+  queue: Customer[];
+  activeCustomerId: string | null;
+  news: string[];
+
+  dayLog: DayLog;
+  history: DayLog[];
+  settings: Settings;
+
+  location: string;
+  travelUsed: boolean;
+
+  stats: {
+    served: number; missed: number; trades: number;
+    streak: number; bestStreak: number; helped: number; refused: number;
+  };
+
+  createdAt: number;
+  savedAt: number;
 }
 
-export interface NpcGameplay extends NpcDef {
-  needs: NeedDef[];
+export interface SaveEnvelope {
+  v: number;
+  slot: string;
+  savedAt: number;
+  world: World;
 }
-
-export type GameEvent =
-  | { type: 'money'; amount: number }
-  | { type: 'rep'; amount: number }
-  | { type: 'trust'; npc: string; amount: number }
-  | { type: 'toast'; text: string; icon?: string }
-  | { type: 'sound'; name: string }
-  | { type: 'float'; text: string; x: number; y: number; color?: string }
-  | { type: 'refresh' };

@@ -1,221 +1,162 @@
-// Procedural WebAudio: SFX, ambience and a soft pentatonic score.
-type Ctx = AudioContext;
+// ── audio.ts · WebAudio tự sinh: nhạc nền, tiếng động, mưa ───────────────────
+// Không cần file ngoài, hoạt động cả offline. Mở khoá bằng cử chỉ đầu tiên của
+// người chơi (pointerdown / keydown), đúng chính sách autoplay của trình duyệt.
+import type { Weather, World } from './types';
 
-class AudioEngine {
-  ctx: Ctx | null = null;
-  master!: GainNode;
-  sfxGain!: GainNode;
-  musicGain!: GainNode;
-  ambientGain!: GainNode;
-  started = false;
-  musicTimer: number | null = null;
-  rainNode: AudioBufferSourceNode | null = null;
-  rainGain: GainNode | null = null;
-  step = 0;
+type Sfx = 'coin' | 'wood' | 'paper' | 'click' | 'error' | 'success' | 'door' | 'step' | 'scale' | 'bell' | 'drop';
 
-  init() {
-    if (this.started) return;
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return;
-    this.ctx = new AC();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = 0.9;
-    this.master.connect(this.ctx.destination);
-    this.sfxGain = this.ctx.createGain();
-    this.sfxGain.gain.value = 0.7;
-    this.sfxGain.connect(this.master);
-    this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.32;
-    this.musicGain.connect(this.master);
-    this.ambientGain = this.ctx.createGain();
-    this.ambientGain.gain.value = 0.28;
-    this.ambientGain.connect(this.master);
-    this.started = true;
-    this.startMusic();
+export class AudioManager {
+  enabled = true;
+  volume = 0.55;
+  private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private rain: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+  private musicTimer: number | null = null;
+  private step = 0;
+
+  private ensure(): AudioContext | null {
+    if (!this.enabled) return null;
+    if (!this.ctx) {
+      const scope = globalThis as unknown as {
+        AudioContext?: typeof AudioContext;
+        webkitAudioContext?: typeof AudioContext;
+      };
+      const Ctor = scope.AudioContext ?? scope.webkitAudioContext;
+      if (!Ctor) return null;
+      try {
+        this.ctx = new Ctor();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.volume;
+        this.master.connect(this.ctx.destination);
+      } catch { return null; }
+    }
+    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    return this.ctx;
   }
 
-  resume() {
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-    if (!this.started) this.init();
+  /** Gọi từ pointerdown/keydown đầu tiên: tạo AudioContext và hồi nhạc nền. */
+  unlock(): void {
+    this.ensure();
+    this.music(this.enabled);
+  }
+  isUnlocked(): boolean { return this.ctx !== null; }
+  isMusicActive(): boolean { return this.musicTimer !== null; }
+
+  setVolume(v: number): void {
+    this.volume = Math.max(0, Math.min(1, v));
+    if (this.master) this.master.gain.value = this.enabled ? this.volume : 0;
   }
 
-  setSfx(v: number) { if (this.sfxGain) this.sfxGain.gain.value = v; }
-  setMusic(v: number) { if (this.musicGain) this.musicGain.gain.value = v * 0.7; }
-
-  /** Mute everything while the tab is hidden (timers still fire in the background,
-   *  so the score would keep playing to an empty room). */
-  duck(hidden: boolean) {
-    if (!this.master || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    this.master.gain.cancelScheduledValues(t);
-    this.master.gain.setTargetAtTime(hidden ? 0 : 0.9, t, 0.08);
-    if (hidden) {
-      if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+  /** Đồng bộ đủ trạng thái: âm lượng, mưa, nhạc. Dùng sau mở khoá / tải game. */
+  sync(w: World): void {
+    this.enabled = w.settings.sound;
+    this.setVolume(w.settings.volume);
+    if (this.master) this.master.gain.value = this.enabled ? this.volume : 0;
+    if (!this.enabled) {
       this.stopRain();
-    } else if (this.started && !this.musicTimer) {
-      this.startMusic();
+      this.music(false);
+      return;
     }
+    this.ensure();
+    this.setWeather(w.weather);
+    this.music(true);
   }
 
-  private noiseBuffer(seconds = 1): AudioBuffer {
-    const ctx = this.ctx!;
-    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
+  toggle(on: boolean): void {
+    this.enabled = on;
+    if (!on) {
+      this.stopRain();
+      this.music(false);
+    } else {
+      this.ensure();
+      this.music(true);
+    }
+    if (this.master) this.master.gain.value = on ? this.volume : 0;
+  }
+
+  private stopRain(): void {
+    if (!this.rain) return;
+    try { this.rain.src.stop(); } catch { /* already stopped */ }
+    try { this.rain.gain.disconnect(); } catch { /* already disconnected */ }
+    this.rain = null;
+  }
+
+  private tone(freq: number, dur: number, type: OscillatorType, gain: number, delay = 0, slide = 0): void {
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    const t = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t + dur + 0.02);
+  }
+
+  private noise(dur: number, gain: number, filterHz: number): void {
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    return buf;
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = filterHz;
+    const g = ctx.createGain(); g.gain.value = gain;
+    src.connect(filter); filter.connect(g); g.connect(this.master);
+    src.start();
   }
 
-  private tone(freq: number, dur: number, type: OscillatorType, gain: number, when = 0, slide = 0) {
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime + when;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, t);
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), t + dur);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(gain, t + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g);
-    g.connect(this.sfxGain);
-    o.start(t);
-    o.stop(t + dur + 0.05);
-  }
-
-  private noise(dur: number, gain: number, filterFreq: number, type: BiquadFilterType = 'bandpass', when = 0) {
-    if (!this.ctx) return;
-    const t = this.ctx.currentTime + when;
-    const src = this.ctx.createBufferSource();
-    src.buffer = this.noiseBuffer(dur + 0.1);
-    const f = this.ctx.createBiquadFilter();
-    f.type = type;
-    f.frequency.value = filterFreq;
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(gain, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f); f.connect(g); g.connect(this.sfxGain);
-    src.start(t); src.stop(t + dur + 0.05);
-  }
-
-  play(name: string) {
-    if (!this.ctx) return;
-    this.resume();
+  sfx(name: Sfx): void {
     switch (name) {
-      case 'click':
-        this.tone(660, 0.05, 'square', 0.05);
-        break;
-      case 'coin':
-        this.tone(1320, 0.09, 'sine', 0.12);
-        this.tone(1760, 0.14, 'sine', 0.1, 0.06);
-        this.tone(2217, 0.18, 'sine', 0.06, 0.12);
-        break;
-      case 'buy':
-        this.tone(520, 0.1, 'triangle', 0.1);
-        this.tone(780, 0.14, 'triangle', 0.08, 0.07);
-        break;
-      case 'door':
-        this.noise(0.35, 0.12, 320, 'bandpass');
-        this.tone(140, 0.3, 'sine', 0.06, 0.02, -30);
-        break;
-      case 'paper':
-        this.noise(0.18, 0.08, 2400, 'highpass');
-        break;
-      case 'heart':
-        this.tone(660, 0.12, 'sine', 0.08);
-        this.tone(990, 0.16, 'sine', 0.07, 0.1);
-        break;
-      case 'error':
-        this.tone(180, 0.16, 'sawtooth', 0.06);
-        this.tone(140, 0.2, 'sawtooth', 0.05, 0.08);
-        break;
-      case 'success':
-        this.tone(523, 0.12, 'sine', 0.08);
-        this.tone(659, 0.12, 'sine', 0.08, 0.1);
-        this.tone(784, 0.2, 'sine', 0.1, 0.2);
-        break;
-      case 'footstep':
-        this.noise(0.07, 0.05, 200, 'lowpass');
-        break;
-      case 'bell':
-        this.tone(880, 0.5, 'sine', 0.07);
-        this.tone(1320, 0.7, 'sine', 0.04, 0.02);
-        break;
-      case 'water':
-        this.noise(0.5, 0.06, 900, 'bandpass');
-        break;
-      default:
-        break;
+      case 'coin': this.tone(880, 0.12, 'triangle', 0.14); this.tone(1320, 0.16, 'triangle', 0.09, 0.06); break;
+      case 'wood': this.noise(0.09, 0.12, 700); this.tone(160, 0.09, 'sine', 0.08); break;
+      case 'paper': this.noise(0.14, 0.07, 3200); break;
+      case 'click': this.tone(520, 0.045, 'square', 0.045); break;
+      case 'error': this.tone(220, 0.16, 'sawtooth', 0.07, 0, -80); break;
+      case 'success': this.tone(523, 0.1, 'triangle', 0.1); this.tone(659, 0.1, 'triangle', 0.1, 0.09); this.tone(784, 0.18, 'triangle', 0.1, 0.18); break;
+      case 'door': this.noise(0.22, 0.1, 420); this.tone(110, 0.2, 'sine', 0.06, 0, -30); break;
+      case 'step': this.noise(0.06, 0.045, 300); break;
+      case 'scale': this.tone(660, 0.08, 'sine', 0.06); this.tone(990, 0.1, 'sine', 0.04, 0.07); break;
+      case 'bell': this.tone(1046, 0.5, 'sine', 0.07); this.tone(1568, 0.4, 'sine', 0.03, 0.02); break;
+      case 'drop': this.tone(900, 0.05, 'sine', 0.035, 0, -500); break;
     }
   }
 
-  startRain() {
-    if (!this.ctx || this.rainNode) return;
-    const src = this.ctx.createBufferSource();
-    src.buffer = this.noiseBuffer(2);
-    src.loop = true;
-    const f = this.ctx.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.value = 1200;
-    f.Q.value = 0.5;
-    const g = this.ctx.createGain();
-    g.gain.value = 0.0001;
-    src.connect(f); f.connect(g); g.connect(this.ambientGain);
+  /** Nhạc ngũ cung tiết chế: một nốt mỗi 0.9s, có bass mỗi 4 nhịp. */
+  music(on: boolean): void {
+    if (this.musicTimer !== null) { clearInterval(this.musicTimer); this.musicTimer = null; }
+    if (!on || !this.enabled) return;
+    const scale = [196, 220, 262, 294, 330, 392, 440];
+    this.musicTimer = setInterval(() => {
+      if (!this.enabled || !this.ctx) return;
+      const f = scale[(this.step * 2 + Math.floor(this.step / 3)) % scale.length];
+      this.tone(f, 0.75, 'sine', 0.018);
+      if (this.step % 4 === 0) this.tone(f / 2, 1.1, 'triangle', 0.012);
+      this.step++;
+    }, 900) as unknown as number;
+  }
+
+  setWeather(w: Weather): void {
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    this.stopRain();
+    if (w !== 'rain' && w !== 'storm') return;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * 2));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.6;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = w === 'storm' ? 950 : 1400;
+    const g = ctx.createGain(); g.gain.value = w === 'storm' ? 0.075 : 0.04;
+    src.connect(filter); filter.connect(g); g.connect(this.master);
     src.start();
-    g.gain.exponentialRampToValueAtTime(0.18, this.ctx.currentTime + 1.2);
-    this.rainNode = src;
-    this.rainGain = g;
-  }
-
-  stopRain() {
-    if (!this.rainNode || !this.rainGain) return;
-    const g = this.rainGain;
-    const src = this.rainNode;
-    g.gain.exponentialRampToValueAtTime(0.0001, this.ctx!.currentTime + 1);
-    setTimeout(() => { try { src.stop(); } catch { /* noop */ } }, 1200);
-    this.rainNode = null;
-    this.rainGain = null;
-  }
-
-  startMusic() {
-    if (!this.ctx || this.musicTimer) return;
-    const scale = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
-    let idx = 0;
-    const playNote = () => {
-      if (!this.ctx) return;
-      const t = this.ctx.currentTime;
-      const notes = [0, 2, 4, 2, 3, 1, 4, 2];
-      const n = scale[notes[idx % notes.length]];
-      idx++;
-      const o = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = n;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.05, t + 0.4);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 4.2);
-      o.connect(g); g.connect(this.musicGain);
-      o.start(t); o.stop(t + 4.5);
-      // soft fifth
-      if (idx % 2 === 0) {
-        const o2 = this.ctx.createOscillator();
-        const g2 = this.ctx.createGain();
-        o2.type = 'triangle';
-        o2.frequency.value = n * 1.5;
-        g2.gain.setValueAtTime(0, t);
-        g2.gain.linearRampToValueAtTime(0.025, t + 0.8);
-        g2.gain.exponentialRampToValueAtTime(0.0001, t + 4);
-        o2.connect(g2); g2.connect(this.musicGain);
-        o2.start(t); o2.stop(t + 4.2);
-      }
-    };
-    playNote();
-    this.musicTimer = window.setInterval(playNote, 4200);
-  }
-
-  stopMusic() {
-    if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+    this.rain = { src, gain: g };
   }
 }
 
-export const audio = new AudioEngine();
+export const audio = new AudioManager();

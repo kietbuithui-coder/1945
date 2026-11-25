@@ -1,118 +1,89 @@
-# Cửa Hàng 1945 — *Vietnam 1945*
+# Cửa Hàng 1945
 
-Một game mô phỏng cửa hàng / sinh tồn / kể chuyện, bối cảnh một thị trấn nhỏ ở miền Bắc Việt Nam, tháng 8 năm 1945.
-Bạn thừa kế một tiệm tạp hóa cũ. Hàng khan hiếm, tiền thiếu, và mỗi quyết định — bán chịu, giữ giá, giúp hàng xóm — đều để lại dấu vết.
+Một game quản lý tiệm / sinh tồn / tự sự lấy bối cảnh một thị trấn đồng bằng sông hư cấu ở miền Bắc Việt Nam, tháng Tám năm 1945. Bạn thừa hưởng một quầy gỗ, vài kệ hàng, ít vốn và cuốn sổ nợ của ông chủ cũ. Mỗi ngày là một chuỗi lựa chọn có hệ quả: nhập gì, xếp gì lên kệ, đưa giá ai, giúp ai, giữ chữ tín hay giữ tiền.
 
-Đóng gói kèm bộ **asset pixel art 799 file** ( xem `docs/ART_BIBLE.md` và `assets/manifests/ASSET_MANIFEST.json` ).
+> Chỉ mượn **cảm giác** đứng quầy, cầm vật phẩm, xếp kho và bầu không khí giao dịch; không sao chép nội dung, hình ảnh hay cơ chế độc quyền của bất kỳ game nào khác. Toàn bộ đồ hoạ là **Vietnam 1945 Game Asset Pack** có sẵn trong repo.
 
----
-
-## Chạy game
+## Chơi
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # type-check + build production
-npm run preview    # xem bản build
-npm run assets     # regenerate toàn bộ asset (deterministic)
-npm run sim        # headless economy simulation 30 ngày
-npx tsx tools/dom-test.ts   # DOM/UI smoke test (jsdom)
+npm run dev
 ```
 
-Yêu cầu: Node 20+, trình duyệt hỗ trợ Canvas 2D và WebAudio. Game chạy trên desktop trước,
-kiến trúc tách module để mở rộng sang Android/touch.
+Mở preview do Arena cung cấp (Vite bind `0.0.0.0:5173`). PC dùng chuột; màn cảm ứng dùng kéo/chạm tương tự. Khung game 1280×720 được scale nguyên vẹn, pixel art giữ `image-rendering: pixelated`.
 
----
+Một ngày gồm 5 pha, có nút đi tiếp rõ ràng:
 
-## Điều khiển
+1. **Sáng** — đọc tin, thời tiết, sổ nợ.
+2. **Nhập hàng** — đặt từ 8 mối hàng; tồn kho có hạn, chuyến có hẹn và có rủi ro.
+3. **Mở cửa** — khách xếp hàng thật, kiên nhẫn thật; kéo hàng lên khay, kiểm phẩm chất, đưa giá, mặc cả / đổi hàng / ghi sổ / tặng kèm, rồi **xác nhận** mới trừ hàng và cộng tiền.
+4. **Chốt sổ** — doanh thu, chi phí, hư hỏng, uy tín, lòng tin xóm.
+5. **Tối** — nhiệm vụ nhiều ngày hoặc sự kiện có điều kiện; quyết định ghi vào nhật ký và ảnh hưởng ngày mai.
 
-| Phím | Tác dụng |
-| --- | --- |
-| `Space` | Tạm dừng / tiếp tục |
-| `1` `2` `3` | Tốc độ thời gian |
-| `I` | Kho hàng & kệ |
-| `P` | Bảng giá & thị trường |
-| `M` | Bản đồ |
-| `O` | Mở cửa (buổi sáng) |
-| `E` | Đóng cửa, chốt sổ |
-| `Esc` | Đóng cửa sổ |
-| Chuột / chạm | Kéo thả chồng hàng, bấm nút |
+30 ngày · 5 chương · 3 độ khó · 26 NPC (9 chuỗi riêng) · 13 nhiệm vụ · 20 sự kiện · 10 nâng cấp · 4 nhân viên · 8 địa điểm · 5 kết thúc.
 
----
+### Tiền tệ
 
-## Vòng lặp một ngày (5 pha)
+Game dùng **đồng bạc Đông Dương / piastre**, ký hiệu `đ`, và **xu / cent**: một đồng = 100 xu. Không có tiền VN hiện đại, thẻ, chuyển khoản hay thiết bị điện tử.
 
-1. **Sáng** — sắp kệ, chỉnh giá, đi chợ/nhà cung cấp, đặt hàng trước.
-2. **Mua hàng** — chợ (mua ngay, đắt hơn) hoặc nhà cung cấp (rẻ hơn, có độ trễ, có rủi ro mất hàng).
-3. **Mở cửa** — khách ghé theo lịch, chào giá, mặc cả, bán chịu, đổi hàng, từ chối.
-4. **Chốt sổ** — báo cáo doanh thu, giá vốn, tiền mua hàng, hư hỏng, nợ.
-5. **Chiều tối** — sự kiện ngẫu nhiên hoặc câu chuyện, lựa chọn có hệ quả.
+### Điều khiển
 
----
+| | |
+|---|---|
+| Kéo thả / chạm | Chuyển hàng giữa kho ↔ kệ ↔ khay quầy |
+| Chuột phải | Tách đôi chồng hàng |
+| `Space` | Tạm dừng |
+| `1` `2` `3` | Tốc độ |
+| `I` `B` `L` `M` `J` `U` `S` `H` | Kho, nhập hàng, sổ, bản đồ, nhật ký, nâng cấp, lưu, trợ giúp |
+| `O` / `E` | Mở cửa / chốt sổ (theo đúng pha) |
+| `Enter` / `Esc` | Xác nhận / đóng bảng |
 
-## Hệ thống
+## Âm thanh & nhạc nền
 
-| Hệ thống | File | Nội dung |
-| --- | --- | --- |
-| Dữ liệu | `src/game/data.ts`, `src/data/*.json` | 122 vật phẩm, 24 NPC, 9 nhà cung cấp, 8 địa điểm, 10 nâng cấp, 10 nhiệm vụ, 5 chương, 5 kết thúc |
-| Thế giới | `src/game/systems.ts` | kinh tế, kho/kệ, khách, công nợ, cung ứng, giao hàng, nhiệm vụ, save/migrate |
-| Sự kiện | `src/game/events.ts` | 6 sự kiện chính, 25 arc nhân vật, 17 sự kiện ngẫu nhiên |
-| Giao diện | `src/game/ui.ts`, `src/game/panels.ts` | HUD, dock, trade, 12 panel, title/report/event/ending |
-| Render | `src/game/scene.ts` | nền pixel, overlay nâng cấp, khách, đèn, bụi, mưa, tint, vignette |
-| Điều khiển | `src/game/game.ts` | vòng lặp ngày, sự kiện, save/load, phím tắt |
-| Âm thanh | `src/game/audio.ts` | SFX + mưa + nhạc ngũ cung, procedural WebAudio (không cần file ngoài) |
+Nhạc ngũ cung, tiếng gỗ, tiền xu, cân hàng, cửa, mưa… được **tổng hợp trực tiếp bằng WebAudio**, không tải file ngoài, hoạt động offline. Trình duyệt chặn autoplay nên `pointerdown` / `keydown` đầu tiên sẽ mở khoá `AudioContext`; sau đó nhạc nền chạy liên tục, tiếng mưa bật theo thời tiết. Có nút **Âm thanh** và thanh **Âm lượng** trong Cài đặt; tắt tiếng dừng cả nhạc lẫn mưa.
 
-### Các trụ cột liên kết với nhau
+## Lưu trữ
 
-- **Thời tiết → vận chuyển → khan hiếm → giá → quyết định của người chơi.**
-  Mưa lớn làm Supply giảm, Delivery trễ, demand thực phẩm và dầu đèn tăng.
-- **Uy tín + quan hệ + ngày** mới mở được nâng cấp, không phải chỉ cần tiền.
-- **Bán chịu** giữ khách nhưng tạo khoản phải thu; đòi nợ đúng hạn tăng uy tín, để quá hạn thì mất.
-- **Gia đình** tiêu 2 phần cơm mỗi ngày; thiếu ăn giảm sức khỏe và cộng đồng.
-- **Nhân viên** không phải tiền tự động: Mai tự sắp kệ mỗi sáng và kéo thêm 1 khách/ngày.
+`auto`, `slot1`, `slot2`, `slot3`; tự động lưu đầu ngày, sau giao dịch, khi ẩn tab / đóng trang. Mỗi ô có `.bak`, JSON hỏng không làm crash, save cũ được migrate lên `SAVE_VERSION = 3`. Khi tải, khách đang dở được đưa về trạng thái chờ: **không phát lại giao dịch đã chốt**.
 
-### Kinh tế
+## Kiến trúc
 
-- `fairSell = round(sell × (demand/supply) × (1 + priceFlag))`
-- `fairBuy  = round(buy × (demand/supply)^0.65 × (1 + priceFlag×0.6))`
-- Cung cầu random-walk **có hồi quy về 1.0** (không lạm phát vô hạn), kẹp 0.42–1.85.
-- Nhà cung cấp có tồn kho giới hạn, đặt lại theo chu kỳ; đặt trước rẻ 5% nhưng có thể trễ/mất.
-- Khách có ngân sách, kiên nhẫn, độ nhạy giá, tính cách; giá cao quá thì trả giá hoặc bỏ đi.
+```
+index.html · src/main.ts · src/style.css
+src/game/
+  types.ts       hợp đồng dữ liệu dùng chung
+  data.ts        vật phẩm, NPC, mối hàng, bản đồ, quest/event, asset URL
+  state.ts       thế giới, RNG, SaveManager
+  inventory.ts   grid, kéo thả, gộp/tách/sắp, hư hỏng
+  economy.ts     cung cầu, thời tiết, nhập hàng, chuyến, nợ, chi phí
+  people.ts      lịch khách, nhu cầu, kiên nhẫn, quan hệ
+  trade.ts       khay, kiểm hàng, đưa giá, chiến thuật, chốt sổ
+  story.ts       effect DSL, điều kiện, quest/event, chương, kết thúc
+  progression.ts cấp tiệm, nâng cấp, nhân viên, đi lại
+  audio.ts       WebAudio: nhạc, sfx, mưa
+  scene.ts       nền pixel, thời tiết, khách, nâng cấp nhìn thấy
+  ui.ts          HUD, dock, quầy, panel, modal, drag/drop
+  game.ts        vòng pha, action, phím tắt, lifecycle
+vite.config.ts  dev middleware + build copy cho /assets
+tools/          asset integrity, 30-day sim, jsdom acceptance test
+```
 
-### Lưu game
-
-`localStorage` với key `vn1945.auto`, `vn1945.slot1..3` (+ `.bak`).
-Tự động lưu **ngay khi bắt đầu mỗi ngày** (nên luôn có nút "Tiếp tục" ở màn hình chính),
-sau mỗi ngày, và khi ẩn/đóng tab. Lưu đủ: vị trí, kho, kệ, NPC, nợ, giao hàng, nhiệm vụ, cờ truyện, nâng cấp.
-`World.migrate` merge bản cũ vào `newGame` nên save cũ vẫn mở được; **không phát lại giao dịch** khi tải.
-
----
+Asset pack nằm ở `assets/` (799 file). Vite phục vụ `/assets/*` lúc dev và copy nguyên cây vào `dist/assets` lúc build, nên `./assets/...` hoạt động cả preview lẫn deploy tĩnh, không nhân bản file trong Git.
 
 ## Kiểm thử
 
-- `npm run sim` — chạy 30 ngày ở 3 độ khó, assert: tiền không âm, không NaN, đến ngày 30,
-  giá hợp lý, tồn kho nhà cung cấp có giới hạn, save/load giữ nguyên trạng thái.
-  Sim dùng seed cố định (`SIM_SEED`) nên kết quả balances lặp lại y hệt mỗi lần chạy;
-  còn kiểm tra thêm hai game cùng seed cho cùng một thế giới.
-- `npx tsx tools/dom-test.ts` — boots UI thật bằng jsdom: title → new game → intro → 12 panel →
-  kéo thả/tách chồng → mua hàng → phục vụ khách → 6 nút mặc cả → nâng cấp → đi map → kết thúc.
-- `npm run build` — `tsc --noEmit` + Vite.
-
----
-
-## Cấu trúc
-
-```
-assets/            799 file pixel art + ASSET_MANIFEST.json
-docs/ART_BIBLE.md  art direction, palette, quy tắc pixel
-src/game/          types, data, events, systems, ui, panels, scene, game, audio
-src/data/          items.json, npcs.json (sinh từ tools/gen)
-src/style.css      design system gỗ/giấy cũ
-tools/             generator asset, simulation, DOM test
+```bash
+npm run typecheck
+npm run assets:check   # 474 URL ảnh + tính toàn vẹn DSL / dữ liệu
+npm run sim            # 30 ngày × 3 độ khó + unit test hệ thống
+npm run dom-test       # jsdom: boot, audio, drag/drop, trade, save, mọi nút
+npm run build
+npm test               # tất cả phía trên (trừ build)
 ```
 
-## Ghi chú lịch sử
+`npm test` kiểm cả tiền vào két đúng số, NPC phản ứng, hàng rời kệ, hư hỏng, chuyến giao, quest/event, nâng cấp đổi khung cảnh, save/load không replay và không có nút giả.
 
-Bối cảnh là hư cấu (thị trấn An Bình), lấy cảm hứng từ nông thôn Bắc Bộ 1945.
-Tiền tệ trong game dùng **đồng** theo thang giá tham chiếu của cuối thời thuộc địa;
-không có tiền polymer, không có vật dụng hiện đại. Không khai thác nạn đói hay bạo lực để gây sốc.
+## Giới hạn thiết kế
+
+Không idle clicker, không bắn súng / chiến tranh, không tiền hay hàng vô cực, không NPC chỉ để trang trí, không thanh stat rườm rà, không giật gân hay thương mại hoá nạn đói, không đồ vật hiện đại. Mỗi vật phẩm, mỗi nút và mỗi ngày đều có tác dụng thật.

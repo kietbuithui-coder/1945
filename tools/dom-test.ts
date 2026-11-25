@@ -1,25 +1,27 @@
-// DOM smoke test with jsdom: boots the real UI and plays through the day loop.
-// Run with: npx tsx tools/dom-test.ts
+// DOM acceptance test with jsdom: boot UI thật, audio giả, kéo thả, bán hàng,
+// save/load, chuyển ngày, quest/event, nâng cấp nhìn thấy, và mọi nút có handler.
+// Chạy: npx tsx tools/dom-test.ts
 import { JSDOM } from 'jsdom';
+import { performance as nodePerf } from 'node:perf_hooks';
 
 const dom = new JSDOM(
-  `<!doctype html><html><body><div id="app"><div id="stage">
-     <canvas id="scene" width="1280" height="720"></canvas><div id="ui"></div><div id="loading"><div class="load-inner"><div class="load-title">Cửa Hàng 1945</div><div class="load-bar"><i id="loading-bar"></i></div></div></div>
-   </div></div></body></html>`,
-  // runScripts: 'dangerously' makes jsdom execute inline on* attributes exactly
-  // like a browser — without it a swallowed click looks like a working one.
+  `<!doctype html><html lang="vi"><body><div id="stage">
+     <canvas id="scene" width="1280" height="720"></canvas><div id="ui"></div>
+   </div></body></html>`,
   { url: 'http://localhost/', pretendToBeVisual: true, runScripts: 'dangerously' },
 );
+const win = dom.window as unknown as Record<string, any>;
+const doc = dom.window.document;
+win.localStorage.clear();
 
-// ---------------------------------------------------------------- globals --
-const g = globalThis as Record<string, unknown>;
-const win = dom.window as unknown as Record<string, unknown>;
-for (const key of ['window', 'document', 'localStorage', 'HTMLElement', 'Element', 'Node', 'Event', 'MouseEvent', 'KeyboardEvent', 'getComputedStyle']) {
-  g[key] = win[key];
-}
-g.requestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 16) as unknown as number;
+const g = globalThis as unknown as Record<string, any>;
+for (const key of [
+  'window', 'document', 'localStorage', 'HTMLElement', 'Element', 'Node',
+  'Event', 'MouseEvent', 'KeyboardEvent', 'getComputedStyle',
+]) g[key] = win[key];
+g.requestAnimationFrame = (cb: FrameRequestCallback) =>
+  setTimeout(() => cb(nodePerf.now()), 16) as unknown as number;
 g.cancelAnimationFrame = (id: number) => clearTimeout(id);
-g.localStorage = dom.window.localStorage;
 
 class FakeImage {
   onload: null | (() => void) = null;
@@ -28,7 +30,7 @@ class FakeImage {
   naturalWidth = 0;
   naturalHeight = 0;
   private _src = '';
-  get src() { return this._src; }
+  get src(): string { return this._src; }
   set src(v: string) {
     this._src = v;
     this.complete = true;
@@ -37,597 +39,365 @@ class FakeImage {
     setTimeout(() => this.onload?.(), 0);
   }
 }
-g.Image = FakeImage;
-win.Image = FakeImage;
+g.Image = FakeImage; win.Image = FakeImage;
 
-function makeCtx(): CanvasRenderingContext2D {
+class FakeParam {
+  value = 0;
+  setValueAtTime(): void { /* noop */ }
+  exponentialRampToValueAtTime(): void { /* noop */ }
+  linearRampToValueAtTime(): void { /* noop */ }
+}
+let fakeAudio: any = null;
+class FakeAudioContext {
+  state = 'running';
+  currentTime = 0;
+  sampleRate = 44100;
+  destination = {};
+  oscStarts = 0;
+  bufferStarts = 0;
+  masterGain = 0.55;
+  constructor() { fakeAudio = this; }
+  createGain(): any {
+    return {
+      gain: new FakeParam(),
+      connect: () => { /* noop */ },
+      disconnect: () => { /* noop */ },
+    };
+  }
+  createOscillator(): any {
+    return {
+      type: 'sine', frequency: new FakeParam(),
+      connect: () => { /* noop */ },
+      start: () => { this.oscStarts++; },
+      stop: () => { /* noop */ },
+    };
+  }
+  createBuffer(_ch: number, len: number): any {
+    return { getChannelData: () => new Float32Array(len) };
+  }
+  createBufferSource(): any {
+    return {
+      buffer: null, loop: false,
+      connect: () => { /* noop */ },
+      start: () => { this.bufferStarts++; },
+      stop: () => { /* noop */ },
+    };
+  }
+  createBiquadFilter(): any {
+    return { type: '', frequency: new FakeParam(), connect: () => { /* noop */ } };
+  }
+  resume(): Promise<void> { this.state = 'running'; return Promise.resolve(); }
+}
+g.AudioContext = FakeAudioContext; win.AudioContext = FakeAudioContext;
+
+class PointerEventShim extends dom.window.MouseEvent {
+  pointerType: string;
+  constructor(type: string, init: MouseEventInit & { pointerType?: string } = {}) {
+    super(type, init);
+    this.pointerType = init.pointerType ?? 'mouse';
+  }
+}
+g.PointerEvent = PointerEventShim; win.PointerEvent = PointerEventShim;
+
+function recordingCtx(): { ctx: any; calls: Record<string, number> } {
+  const calls: Record<string, number> = { fillRect: 0, strokeRect: 0, drawImage: 0, arc: 0 };
   const gradient = { addColorStop() { /* noop */ } };
-  const handler: ProxyHandler<Record<string, unknown>> = {
+  const ctx = new Proxy({}, {
     get(_t, prop: string) {
       if (prop === 'createRadialGradient' || prop === 'createLinearGradient') return () => gradient;
       if (prop === 'measureText') return () => ({ width: 10 });
+      if (prop in calls) return () => { calls[prop]++; };
       return () => { /* noop */ };
     },
     set() { return true; },
-  };
-  return new Proxy({}, handler) as unknown as CanvasRenderingContext2D;
+  });
+  return { ctx, calls };
 }
-(dom.window as unknown as { HTMLCanvasElement: { prototype: { getContext: () => unknown } } }).HTMLCanvasElement.prototype.getContext = function () {
-  return makeCtx();
-};
+const baseCtx = recordingCtx();
+(dom.window as unknown as { HTMLCanvasElement: { prototype: { getContext: () => unknown } } })
+  .HTMLCanvasElement.prototype.getContext = () => baseCtx.ctx;
 
-// ------------------------------------------------------------------- test --
 const failures: string[] = [];
-function check(cond: unknown, msg: string) {
-  if (cond) console.log('  ✓ ' + msg);
+const check = (ok: unknown, msg: string): void => {
+  if (ok) console.log('  ✓ ' + msg);
   else { console.log('  ✗ ' + msg); failures.push(msg); }
-}
+};
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function main() {
+async function main(): Promise<void> {
   const { Game } = await import('../src/game/game');
-  const canvas = document.getElementById('scene') as HTMLCanvasElement;
-  const game = new Game(canvas);
-  const ui = game.ui as unknown as Record<string, (...a: unknown[]) => unknown>;
-  // NOTE: game.world is replaced on new game / load, always read it fresh.
-  const world = () => game.world;
-  const $ = (sel: string) => document.querySelector(sel);
-  const $$ = (sel: string) => Array.from(document.querySelectorAll(sel));
-  const click = (sel: string) => {
-    const el = $(sel) as HTMLElement | null;
-    if (!el) throw new Error('Missing element ' + sel);
+  const { audio } = await import('../src/game/audio');
+  const { BG_FOR_LEVEL, UPGRADES } = await import('../src/game/data');
+  const { callNext, buildQueue } = await import('../src/game/people');
+  const { newTrade } = await import('../src/game/trade');
+  const { totalItem } = await import('../src/game/inventory');
+  const { addDebt } = await import('../src/game/economy');
+  const { listSaves } = await import('../src/game/state');
+
+  const canvas = doc.getElementById('scene') as HTMLCanvasElement;
+  const root = doc.getElementById('ui') as HTMLElement;
+  const game = new Game(canvas, root);
+  const w = (): any => game.world;
+  const $ = (sel: string) => doc.querySelector(sel) as HTMLElement | null;
+  const $$ = (sel: string) => Array.from(doc.querySelectorAll(sel)) as HTMLElement[];
+  const click = (sel: string): void => {
+    const el = $(sel);
+    if (!el) throw new Error('Thiếu phần tử ' + sel);
     el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   };
+  const act = (action: string, value = ''): void => {
+    game.handle({ type: 'action', action, value } as any);
+  };
+  const noOrphan = (): boolean => !game.ui.toasts.some((t) => t.text.startsWith('Chưa xử lý'));
 
-  console.log('\n— boot —');
-  game.boot();
+  console.log('\n— boot, asset & nhạc nền —');
+  await game.boot();
   await sleep(60);
-  check(!!$('.title-screen'), 'title screen renders');
-  check(!!$('[data-action="new-game-screen"]'), 'title has new-game button');
+  check(!!$('.title-card'), 'màn tiêu đề hiện ra');
+  check(!!$('[data-act="newgame"]'), 'có nút ván mới');
+  check(!$('[data-act="continue"]'), 'chưa có save → không hiện Tiếp ván');
+  check($('#loading')?.innerHTML === '', 'loading biến mất sau preload');
+  check($$('img').length > 0, 'HUD dùng ảnh asset pack thật');
+
+  win.dispatchEvent(new dom.window.MouseEvent('pointerdown', { bubbles: true }));
+  check(audio.isUnlocked(), 'cử chỉ đầu tiên mở khoá AudioContext');
+  check(audio.isMusicActive(), 'nhạc nền được bật sau cử chỉ');
+  await sleep(1000);
+  check(!!fakeAudio && fakeAudio.oscStarts > 0, 'nhạc nền sinh oscillator thật');
+  w().weather = 'storm'; audio.setWeather('storm');
+  check(!!fakeAudio && fakeAudio.bufferStarts > 0, 'tiếng mưa sinh buffer thật');
+  act('sound');
+  check(!audio.isMusicActive() && !w().settings.sound, 'tắt âm thanh dừng nhạc nền');
+  act('sound');
+  check(audio.isMusicActive() && w().settings.sound, 'bật lại khởi động nhạc nền');
+
+  console.log('\n— ván mới & nhập hàng —');
+  click('[data-act="newgame"]');
+  check(!game.ui.titleMode && w().phase === 'morning', 'ván mới vào buổi sáng');
+  check(!!$('.modal-card.intro'), 'thiệp mở đầu chương 1');
+  click('[data-act="modalclose"]');
+  click('[data-act="phase"][data-value="procure"]');
+  check(w().phase === 'procure', 'sang pha nhập hàng');
+  click('[data-act="panel"][data-value="supply"]');
+  check(game.ui.panel === 'supply', 'bảng nhà cung cấp mở');
+  const buyBtn = $('[data-act="buy"]')!;
+  const [sid, item, qty] = buyBtn.dataset.value!.split('|');
+  const money0 = w().money, stock0 = w().suppliers[sid].stock[item].qty, item0 = totalItem(w(), item);
+  buyBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  check(w().money < money0, 'mua hàng trừ tiền thật');
+  check(w().suppliers[sid].stock[item].qty === stock0 - Number(qty), 'tồn kho nhà cung cấp giảm');
+  check(totalItem(w(), item) === item0 + Number(qty), 'hàng giao ngay vào kho');
+  check(noOrphan(), 'nút mua có handler thật');
+  click('[data-act="panelclose"]');
+
+  console.log('\n— kho: kéo thả, tách, sắp xếp, tìm —');
+  act('panel', 'inventory');
+  check(game.ui.panel === 'inventory' && $$('[data-grid]').length > 0, 'grid kho & kệ render');
   {
-    // no save yet: the entry is visible but explains itself instead of vanishing
-    const c = $('[data-action="continue"]') as HTMLButtonElement | null;
-    check(!!c, 'title always shows a "Tiếp tục" entry');
-    check(!!c && c.disabled, '"Tiếp tục" is disabled when nothing is saved');
-    check(!!c && !!(c as HTMLElement).title, 'disabled "Tiếp tục" explains why');
+    const from = $('[data-grid="warehouse"][data-i="0"]')!;
+    const to = $('[data-grid="shelves"][data-i="9"]')!;
+    const sourceItem = w().warehouse.cells[0]?.item;
+    const original = doc.elementFromPoint;
+    (doc as any).elementFromPoint = () => to;
+    from.dispatchEvent(new PointerEventShim('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+    win.dispatchEvent(new PointerEventShim('pointermove', { bubbles: true, clientX: 60, clientY: 60 }));
+    win.dispatchEvent(new PointerEventShim('pointerup', { bubbles: true, clientX: 60, clientY: 60 }));
+    (doc as any).elementFromPoint = original;
+    check(w().warehouse.cells[0] === null, 'pointer drag chuyển hết chồng ra khỏi kho');
+    check(w().shelves.cells[9]?.item === sourceItem, 'pointer drop đặt đúng ô kệ');
   }
-  check(!!$('#loading'), 'loading overlay exists');
+  {
+    const before = w().warehouse.cells.filter(Boolean).length;
+    $('[data-grid="warehouse"][data-i="1"]')!.dispatchEvent(
+      new dom.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    check(w().warehouse.cells.filter(Boolean).length === before + 1, 'chuột phải tách đôi chồng');
+  }
+  {
+    const select = $('[data-field="sort"]') as HTMLSelectElement;
+    select.value = 'qty';
+    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    check(game.ui.sort === 'qty', 'sắp xếp đổi state thật');
+    let input = $('[data-field="search"]') as HTMLInputElement;
+    input.value = 'gạo';
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    check(game.ui.search === 'gạo', 'tìm kiếm đổi state thật');
+    input = $('[data-field="search"]') as HTMLInputElement;
+    input.value = '';
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  }
+  click('[data-act="merge"]');
+  click('[data-act="restock"]');
+  check(noOrphan(), 'gộp / bổ sung kệ có handler thật');
+  click('[data-act="panelclose"]');
 
-  console.log('\n— new game —');
-  game.startNew('Thử Nghiệm', 'normal');
-  check(game.screen === 'playing', 'screen switches to playing');
-  check(!!$('.modal'), 'chapter card modal opens');
-  check(($('.modal')?.textContent ?? '').includes('Chương 1'), 'chapter 1 card shown');
-  click('[data-action="chapter-continue"]');
-  await sleep(10);
-  check(!!$('.modal'), 'intro event modal opens');
-  check(($('.modal')?.textContent ?? '').includes('Căn tiệm của cha'), 'intro event text shown');
+  console.log('\n— quầy: khay, kiểm hàng, mặc cả, chốt tiền —');
+  click('[data-act="phase"][data-value="open"]');
+  check(w().phase === 'open', 'mở cửa');
+  w().minute = 1000;
+  const c = callNext(w()) ?? (() => { buildQueue(w()); return callNext(w()); })()!;
+  game.trade = newTrade(c.id);
+  c.haggle = 0; c.budget = 100; c.request.maxPrice = 100;
+  game.ui.render();
+  check(!!game.customer() && !!$('[data-act="trayadd"]'), 'khách & kệ bấm nhanh hiện ra');
+  click('[data-act="trayadd"]');
+  check(game.trade?.lines.length === 1, 'bấm kệ đưa hàng lên khay');
+  click('[data-act="inspect"]');
+  check(game.trade?.inspected.length === 1, 'kiểm hàng ghi nhận');
+  click('[data-act="price"][data-value="-5"]');
+  check(game.trade?.discount === -0.05, 'nút giảm giá đổi % thật');
+  click('[data-act="price"][data-value="reset"]');
+  check(game.trade?.discount === 0, 'nút về giá hợp lý');
+  click('[data-act="quote"]');
+  check(game.trade?.reaction?.kind === 'accept', 'đưa giá có phản ứng NPC');
+  const beforeTactic = game.trade!.price;
+  click('[data-act="tactic"][data-value="small"]');
+  check(game.trade!.price < beforeTactic, 'thương lượng bớt nhẹ đổi giá thật');
+  click('[data-act="confirm"]');
+  check(game.ui.modal?.kind === 'confirm' && !!$('.modal-sheet'), 'xác nhận hiện biên lai');
+  const expected = game.trade!.price;
+  const moneyBefore = w().money;
+  const npc = game.customer()!.npc;
+  const trustBefore = w().relations[npc].trust;
+  const line = game.trade!.lines[0];
+  const itemBefore = totalItem(w(), line.item);
+  click('[data-act="doconfirm"]');
+  check(w().money === moneyBefore + expected, `chốt đúng ${expected} đ vào két`);
+  check(w().dayLog.trades === 1 && w().stats.trades === 1, 'sổ ghi đúng 1 giao dịch');
+  check(totalItem(w(), line.item) === itemBefore - line.qty, 'hàng rời kệ đúng số lượng');
+  check(w().relations[npc].trust > trustBefore, 'NPC phản ứng, tín nhiệm đổi');
+  check(noOrphan(), 'mọi nút quầy có handler thật');
 
-  console.log('\n— intro choice —');
-  click('[data-action="event-choice"][data-choice="0"]');
-  await sleep(20);
-  check(world().state.seenEvents.includes('intro_day1'), 'intro marked as seen');
-  check(world().state.time.phase === 'morning', 'still morning after intro (no day skip)');
-  check(world().state.player.day === 1, 'still day 1 after intro');
+  console.log('\n— lưu / tải, không phát lại giao dịch —');
+  act('panel', 'save');
+  click('[data-act="save"][data-value="slot1"]');
+  check(listSaves().find((s: any) => s.slot === 'slot1')?.valid === true, 'ô lưu thủ công hợp lệ');
+  const tradesAtSave = w().dayLog.trades;
+  click('[data-act="load"][data-value="slot1"]');
+  check(w().dayLog.trades === tradesAtSave, 'tải lại không làm tăng số giao dịch');
+  await sleep(120);
+  check(w().dayLog.trades === tradesAtSave, 'sau vài frame vẫn không phát lại giao dịch');
+  act('panelclose');
 
-  console.log('\n— HUD & dock —');
-  check(($('#hud')?.textContent ?? '').includes('Ngày 1'), 'HUD shows day');
-  check(($('#hud')?.textContent ?? '').length > 20, 'HUD has content');
-  check($$('#dock .icon-btn').length >= 12, 'dock has 12+ buttons, got ' + $$('#dock .icon-btn').length);
+  console.log('\n— vòng ngày, quest, event —');
+  game.ui.modal = null; game.ui.render();
+  act('nextphase'); check(w().phase === 'report', 'chốt sổ');
+  act('nextphase'); check(w().phase === 'evening', 'sang buổi tối');
+  const dayBefore = w().day;
+  act('nextphase');
+  await sleep(500);
+  check(w().day === dayBefore + 1, 'fade chuyển sang ngày mới');
+  check(w().history.length >= 1 && w().dayLog.day === w().day, 'sổ ngày được đóng & mở mới');
 
-  console.log('\n— panels render without throwing —');
-  const panels = ['inventory', 'prices', 'suppliers', 'debts', 'quests', 'journal', 'shop', 'map', 'save', 'settings', 'family', 'help'];
-  for (const p of panels) {
-    try {
-      (ui.openPanel as (n: string) => void)(p);
-      const ok = !!$('.modal') && ($('.modal')?.textContent?.length ?? 0) > 40;
-      check(ok, `panel "${p}" renders (${($('.modal')?.textContent?.length ?? 0)} chars)`);
-    } catch (e) {
-      check(false, `panel "${p}" threw: ${(e as Error).message}`);
+  const qw = w();
+  qw.day = 2; qw.phase = 'report'; qw.flags.last_quest_day = 0;
+  for (const st of Object.values(qw.quests) as any[]) { st.status = 'locked'; st.choice = ''; }
+  qw.quests.bowl.status = 'active'; qw.quests.bowl.choice = '';
+  game.ui.modal = null; game.setPhase('evening');
+  check(!!$('.modal-card.quest'), 'nhiệm vụ buổi tối hiện modal thật');
+  click('[data-act="questchoice"]');
+  check(w().quests.bowl.status === 'done', 'lựa chọn quest ghi kết quả');
+
+  const ew = w();
+  ew.phase = 'report'; ew.day = 5; ew.weather = 'storm'; ew.flags = {}; ew.eventsSeen = [];
+  for (const st of Object.values(ew.quests) as any[]) { st.status = 'done'; st.choice = 'x'; }
+  game.ui.modal = null; game.setPhase('evening');
+  check(!!$('.modal-card.event'), 'sự kiện buổi tối hiện modal thật');
+  click('[data-act="eventchoice"]');
+  check(game.ui.modal?.kind === 'result', 'sự kiện có kết quả hệ quả');
+
+  console.log('\n— nâng cấp đổi khung cảnh —');
+  {
+    const rec = recordingCtx();
+    (game.scene as any).ctx = rec.ctx;
+    const sw = w();
+    sw.weather = 'clear'; sw.minute = 720; sw.settings.reduced = true; sw.shopLevel = 5;
+    sw.upgrades = [];
+    const input = { world: sw, dt: 0, customer: null, floaters: [], fade: 0, titleMode: false, trayCount: 0 };
+    game.scene.draw(input as any);
+    const baseline = rec.calls.fillRect;
+    sw.upgrades = UPGRADES.map((u: any) => u.id);
+    game.scene.draw(input as any);
+    check(rec.calls.fillRect > baseline, 'nâng cấp vẽ thêm chi tiết lên nền');
+    check(BG_FOR_LEVEL(1) !== BG_FOR_LEVEL(5), 'lên cấp đổi background asset');
+  }
+
+  console.log('\n— mọi data-act đều có handler —');
+  game.newGame('normal');
+  click('[data-act="modalclose"]');
+  {
+    const aw = w();
+    aw.day = 10; aw.money = 500; aw.shopLevel = 5; aw.rep = 80; aw.community = 80;
+    aw.phase = 'open'; aw.minute = 1000; aw.weather = 'clear'; aw.settings.autoPause = false;
+    aw.activeCustomerId = null; buildQueue(aw);
+    const ac = callNext(aw)!;
+    game.trade = newTrade(ac.id);
+    ac.haggle = 0; ac.budget = 100; ac.request.maxPrice = 100;
+    addDebt(aw, 'Bà Tư', 'ba_tu', 10, aw.day, 'receivable');
+    game.handle({ type: 'action', action: 'trayadd', value: '0' } as any);
+    game.handle({ type: 'action', action: 'quote' } as any);
+    game.handle({ type: 'action', action: 'save', value: 'slot1' } as any);
+    game.ui.modal = null; game.ui.panel = null; game.ui.render();
+  }
+  const collected = new Map<string, { act: string; value: string }>();
+  const collect = (label: string): void => {
+    for (const el of $$('[data-act]')) {
+      const a = el.dataset.act!, v = el.dataset.value ?? '';
+      collected.set(`${a}|${v}`, { act: a, value: v });
     }
+    console.log(`  · ${label}: ${$$('[data-act]').length} nút`);
+  };
+  collect('HUD / dock / counter');
+  const panelIds = ['inventory', 'supply', 'ledger', 'map', 'journal', 'upgrade', 'save', 'help', 'settings'];
+  for (const id of panelIds) {
+    game.ui.modal = null; game.ui.panel = id as any; game.ui.render();
+    collect('panel ' + id);
   }
+  game.ui.panel = null; game.ui.titleMode = true; game.ui.render(); collect('title');
+  game.ui.titleMode = false;
+  const modals: any[] = [
+    { kind: 'intro', title: 'Intro', text: '', choices: [{ label: 'Đóng', act: 'modalclose' }] },
+    { kind: 'confirm', title: 'Confirm', text: '', choices: [
+      { label: 'Chốt', act: 'doconfirm' }, { label: 'Mới', act: 'donewgame' }, { label: 'Tiếp', act: 'continue' },
+    ] },
+    { kind: 'quest', title: 'Quest', text: '', choices: [{ label: 'Chọn', act: 'questchoice', value: '0' }] },
+    { kind: 'event', title: 'Event', text: '', choices: [{ label: 'Chọn', act: 'eventchoice', value: '0' }] },
+    { kind: 'result', title: 'Result', text: '', choices: [
+      { label: 'Ngày mới', act: 'phase', value: 'nextday' }, { label: 'Đóng', act: 'modalclose' },
+    ] },
+  ];
+  for (const m of modals) { game.ui.showModal(m); collect('modal ' + m.kind); }
+  game.ui.modal = null; game.ui.render();
 
-  console.log('\n— inventory —');
-  (ui.openPanel as (n: string) => void)('inventory');
-  check($$('.inv-grid .slot').length === world().warehouseSlots(), `warehouse grid has ${world().warehouseSlots()} slots`);
-  const firstSlot = $('.inv-grid .slot[data-uid]') as HTMLElement;
-  check(!!firstSlot, 'starting inventory visible in grid');
-  firstSlot?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-  await sleep(10);
-  check(($('.inv-side')?.textContent?.length ?? 0) > 60, 'selecting an item shows details');
-  check(!!$('[data-action="to-shelf"]'), 'put-on-shelf action available');
-  // shelf picker -> put rice on an empty shelf
-  const beforeShelf = world().state.shelves.filter((s) => s.itemId).length;
-  click('[data-action="to-shelf"]');
-  await sleep(10);
-  check(!!$('[data-action="shelf-pick"]'), 'shelf picker lists shelves');
-  click('[data-action="shelf-pick"]');
-  await sleep(10);
-  check(world().state.shelves.filter((s) => s.itemId).length >= beforeShelf, 'shelf restocked without error');
-
-  console.log('\n— search & filter —');
-  {
-    const search = document.querySelector('[data-field="search"]') as HTMLInputElement | null;
-    check(!!search, 'search box rendered');
-    if (search) {
-      const before = $$('.inv-grid .slot[data-uid]').length;
-      const sample = $('.inv-grid .slot[data-uid]') as HTMLElement | null;
-      const term = (sample?.title ?? '').split(' ×')[0];
-      check(term.length > 1, 'slot exposes its item name (title), got "' + term + '"');
-      search.value = term;
-      search.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
-      await sleep(10);
-      const after = document.querySelector('[data-field="search"]') as HTMLInputElement | null;
-      check(!!after && after.value === term, 'search keeps the typed text');
-      check(document.activeElement === after, 'search box keeps focus while typing');
-      const dimmed = $$('.inv-grid .slot.dimmed').length;
-      check(dimmed > 0 && dimmed < before, `search dims non-matching slots (${dimmed}/${before})`);
-      // clear again
-      after!.value = '';
-      after!.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
-      await sleep(10);
-    }
-    const foodChip = $('[data-action="filter"][data-cat="food"]') as HTMLElement | null;
-    check(!!foodChip, 'category chips rendered');
-    foodChip?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    check($$('.inv-grid .slot[data-uid]').length > 0, 'category filter shows matching items');
-    const allChip = $('[data-action="filter"][data-cat="all"]') as HTMLElement | null;
-    allChip?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
+  const implemented = new Set([
+    'panel', 'panelclose', 'modalclose', 'pause', 'speed', 'nextphase', 'phase',
+    'newgame', 'donewgame', 'continue', 'difficulty', 'sound', 'reduced',
+    'autopause', 'autosort', 'merge', 'restock', 'buy', 'paydebt', 'npc',
+    'travel', 'levelup', 'upgrade', 'hire', 'fire', 'save', 'load',
+    'deletesave', 'trayadd', 'trayremove', 'cleartray', 'inspect', 'price',
+    'quote', 'tactic', 'confirm', 'doconfirm', 'refuse', 'questchoice', 'eventchoice',
+    'search', 'sort', 'filter',
+  ]);
+  check(collected.size > 35, `thu được ${collected.size} action khác nhau`);
+  const unknown = [...collected.values()].filter((x) => !implemented.has(x.act)).map((x) => x.act);
+  check(unknown.length === 0, `không có data-act lạ${unknown.length ? ': ' + [...new Set(unknown)].join(', ') : ''}`);
+  for (const x of collected.values()) {
+    game.ui.toasts = [];
+    act(x.act, x.value);
+    if (!noOrphan()) { check(false, `action "${x.act}" rơi vào default handler`); break; }
   }
+  check(noOrphan(), 'không nút nào là nút giả');
 
-  console.log('\n— split stack —');
-  const rice = world().state.inventory.find((i) => i.itemId === 'rice_white');
-  if (rice && rice.qty > 1) {
-    const uid = rice.uid;
-    const before = world().state.inventory.length;
-    world().splitStack(uid, 1);
-    check(world().state.inventory.length === before + 1, 'splitStack creates a new stack');
-  } else {
-    check(true, 'splitStack skipped (no stack > 1)');
+  game.stop();
+  audio.music(false);
+  audio.toggle(false);
+  try { dom.window.close(); } catch { /* noop */ }
+  if (failures.length) {
+    console.error(`\n✗ ${failures.length} kiểm thử DOM thất bại.`);
+    process.exit(1);
   }
-
-  console.log('\n— drag & drop (moveStack) —');
-  {
-    const inv = world().state.inventory[0];
-    const target = world().firstEmptySlot();
-    const ok = world().moveStack(inv.uid, target);
-    check(ok && world().state.inventory.find((i) => i.uid === inv.uid)!.slot === target, 'moveStack relocates a stack');
-  }
-
-  console.log('\n— suppliers —');
-  (ui.openPanel as (n: string) => void)('suppliers');
-  check($$('.sup-card').length === Object.keys(world().state.suppliers).length, 'all suppliers listed');
-  const moneyBefore = world().state.player.money;
-  const stockBefore = world().state.suppliers.market.stock.rice_white ?? 0;
-  const r = world().buyFromSupplier('market', 'rice_white', 2);
-  check(r.ok, 'buying from market succeeds: ' + r.msg);
-  check(world().state.player.money < moneyBefore, 'money is deducted');
-  check((world().state.suppliers.market.stock.rice_white ?? 0) === stockBefore - 2, 'supplier stock decreases (no infinite supply)');
-
-  console.log('\n— open shop & serve a customer —');
-  game.openShop();
-  check(world().state.time.phase === 'open', 'phase becomes open');
-  let spawned = false;
-  for (let i = 0; i < 3200 && !spawned; i++) {
-    world().advanceTime(0.1);
-    spawned = !!world().activeCustomer();
-  }
-  check(spawned, 'a customer spawns during opening hours');
-  const cust = world().activeCustomer();
-  if (cust) {
-    ui.renderTrade();
-    check(($('#trade-root')?.textContent ?? '').includes(cust.name), 'trade panel shows the customer');
-    // auto-offer at shelf price
-    const sh = world().state.shelves.find((x) => x.itemId === cust.itemId && x.qty > 0);
-    if (sh) {
-      const qty = Math.min(cust.qty, sh.qty);
-      const price = world().shelfPrice(sh);
-      const ev = world().evaluateOffer(cust, price, qty);
-      check(typeof ev.accepted === 'boolean', 'offer evaluated');
-      if (ev.accepted) {
-        const before = world().state.player.money;
-        const okSale = world().acceptSale(cust, price, qty, sh.id);
-        check(okSale && world().state.player.money > before, 'sale credits money');
-      } else {
-        check(!!ev.counter && ev.counter > 0, 'counter-offer returned');
-      }
-    } else {
-      check(true, 'customer wanted an unstocked item (substitute flow)');
-    }
-  }
-
-  console.log('\n— save / load —');
-  world().state.player.money = 321;
-  const savedInv = world().state.inventory.length;
-  const savedDay = world().state.player.day;
-  game.saveSlot(1);
-  check(game.peekSlot(1)?.player.money === 321, 'slot 1 holds the saved money');
-  world().state.player.money = 1;
-  world().state.inventory = [];
-  game.loadSlot(1);
-  check(game.world.state.player.money === 321, 'load restores money');
-  check(game.world.state.player.day === savedDay, 'load restores day');
-  check(game.world.state.inventory.length === savedInv, 'load restores inventory');
-  check(game.world.state.totals.revenue === 0, 'load does not replay transactions');
-
-  console.log('\n— delete slot —');
-  game.deleteSlot(1);
-  check(game.peekSlot(1) === null, 'slot deleted');
-
-  console.log('\n— day end & report —');
-  // finish the day
-  if (world().state.time.phase !== 'open') game.openShop();
-  let guard = 0;
-  while (world().state.time.phase === 'open' && guard++ < 4000) {
-    world().advanceTime(0.5);
-    const c = world().activeCustomer();
-    if (c) {
-      const sh = world().state.shelves.find((x) => x.itemId === c.itemId && x.qty > 0);
-      if (sh) {
-        const qty = Math.min(c.qty, sh.qty);
-        world().acceptSale(c, world().shelfPrice(sh), qty, sh.id);
-      } else {
-        world().dismissActive('nostock');
-      }
-      world().nextCustomer();
-    }
-  }
-  check(world().state.time.phase === 'report', 'day ends in report phase');
-  game.ui.showReport();
-  await sleep(10);
-  check(!!$('.report'), 'report modal renders');
-  check(($('.report')?.textContent ?? '').includes('Doanh thu'), 'report shows revenue');
-  const rep = world().state.lastReport;
-  check(!!rep && rep.revenue >= 0, 'lastReport recorded');
-
-  game.afterReport();
-  await sleep(20);
-  const modalText = $('.modal')?.textContent ?? '';
-  check(modalText.length > 0 || game.world.state.time.phase === 'morning', 'evening: either an event or the next morning appears');
-  // resolve any queued events until the day advances
-  let clicks = 0;
-  while (game.world.state.player.day === 1 && clicks++ < 6) {
-    const btn = $('[data-action="event-choice"]') as HTMLElement | null;
-    if (btn) { btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); await sleep(10); }
-    else break;
-  }
-  check(game.world.state.player.day === 2, 'advances to day 2, got day ' + game.world.state.player.day);
-  check(game.world.state.time.phase === 'morning', 'new day starts in the morning');
-
-  console.log('\n— keyboard shortcuts —');
-  (document.activeElement as HTMLElement | null)?.blur?.();
-  window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'i' }));
-  await sleep(10);
-  check(!!$('.inv-grid'), 'I opens inventory');
-  window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
-  await sleep(10);
-  check(!$('.modal'), 'Esc closes the modal');
-  window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: '3' }));
-  check(game.world.state.time.speed === 3, '3 sets speed 3');
-
-  console.log('\n— autosave on day change —');
-  check(game.peekSlot(0) !== null, 'autosave slot populated');
-
-  // =========================================================================
-  console.log('\n=== PART 2: negotiation, upgrades, travel, ending ===');
-  game.startNew('Thương Nhân', 'normal');
-  click('[data-action="chapter-continue"]');
-  await sleep(10);
-  // dismiss the intro event
-  const introBtn = $('[data-action="event-choice"]') as HTMLElement | null;
-  introBtn?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-  await sleep(10);
-  check(game.world.state.time.phase === 'morning', 'fresh game is in the morning');
-
-  const trade = () => ui.trade as unknown as { shelfId: number | null; qty: number; price: number; counter: number | null; message: string };
-  const give = (n: number) => { game.world.state.player.money += n; };
-
-  console.log('\n— accepted offer —');
-  game.openShop();
-  // make sure rice is on a shelf
-  const riceShelf = game.world.state.shelves.find((x) => x.itemId === 'rice_white') ?? game.world.state.shelves[0];
-  if (!riceShelf.itemId) {
-    const inv = game.world.state.inventory.find((i) => i.itemId === 'rice_white');
-    if (inv) game.world.restockShelf(riceShelf.id, inv.uid, inv.qty);
-  }
-  give(200);
-  const money0 = game.world.state.player.money;
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.spawnCustomer('ba_tu', 'rice_white', 1);
-  ui.renderTrade();
-  await sleep(5);
-  check(!!$('[data-action="trade-offer"]'), 'offer button rendered');
-  check(!!$('[data-action="trade-gift"]'), 'gift button rendered');
-  check(!!$('[data-action="trade-credit"]'), 'credit button rendered');
-  check(!!$('[data-action="trade-barter"]'), 'barter button rendered');
-  trade().price = 1; // a giveaway price always succeeds
-  click('[data-action="trade-offer"]');
-  await sleep(10);
-  check(game.world.state.player.money > money0, 'offer at a low price sells and credits money');
-  check(trade().message.includes('đồng ý'), 'success message shown: ' + trade().message);
-
-  console.log('\n— negotiation verbs —');
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.spawnCustomer('ba_tu', 'rice_white', 1);
-  ui.renderTrade();
-  await sleep(5);
-  check(!!$('[data-action="trade-hold"]'), 'hold-price button rendered');
-  check($$('[data-action="trade-cut"]').length === 2, 'two price-cut buttons rendered');
-  check(!!$('[data-action="trade-bundle"]'), 'bundle button rendered');
-  // bundle: sells the unit plus one sweetener
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  const bShelf = game.world.state.shelves.find((x) => x.itemId === 'rice_white' && x.qty >= 2);
-  if (bShelf) {
-    const qtyBefore = bShelf.qty;
-    game.world.spawnCustomer('ba_tu', 'rice_white', 1);
-    ui.renderTrade();
-    await sleep(5);
-    trade().price = 1;
-    const bundleBtn = $('[data-action="trade-bundle"]') as HTMLButtonElement | null;
-    if (bundleBtn && !bundleBtn.disabled) {
-      bundleBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-      await sleep(10);
-      check(bShelf.qty <= qtyBefore - 2, 'bundle consumes the sold unit plus a sweetener');
-    } else {
-      check(true, 'bundle button disabled');
-    }
-  } else {
-    check(true, 'not enough stock to bundle (skipped)');
-  }
-
-  console.log('\n— refused offer & counter —');
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.spawnCustomer('ong_nam', 'salt', 1);
-  ui.renderTrade();
-  await sleep(5);
-  const saltShelf = game.world.state.shelves.find((x) => x.itemId === 'salt' && x.qty > 0);
-  if (saltShelf) {
-    trade().price = Math.round(game.world.fairSell('salt') * 40); // absurd price
-    click('[data-action="trade-offer"]');
-    await sleep(10);
-    check(!!$('[data-action="trade-counter"]') || game.world.activeCustomer() === null, 'absurd price is rejected');
-    check(trade().message.length > 0, 'rejection message shown');
-    if ($('[data-action="trade-counter"]')) {
-      click('[data-action="trade-counter"]');
-      await sleep(10);
-      check(game.world.activeCustomer() === null, 'accepting the counter completes the sale');
-    }
-  } else {
-    check(true, 'no salt on shelf (skipped)');
-  }
-
-  console.log('\n— credit sale —');
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.state.npcs.co_man.trust = 60;
-  const medShelf = game.world.state.shelves.find((x) => x.itemId === 'medicine_bottle');
-  if (!medShelf) {
-    const inv = game.world.state.inventory.find((i) => i.itemId === 'medicine_bottle');
-    const empty = game.world.state.shelves.find((x) => !x.itemId);
-    if (inv && empty) game.world.restockShelf(empty.id, inv.uid, inv.qty);
-  }
-  game.world.spawnCustomer('co_man', 'medicine_bottle', 1);
-  ui.renderTrade();
-  await sleep(5);
-  const creditBtn = $('[data-action="trade-credit"]') as HTMLButtonElement | null;
-  if (creditBtn && !creditBtn.disabled) {
-    const debts0 = game.world.state.debts.length;
-    click('[data-action="trade-credit"]');
-    await sleep(10);
-    check(game.world.state.debts.length === debts0 + 1, 'credit sale creates a receivable');
-    check(game.world.state.debts[game.world.state.debts.length - 1].kind === 'lent', 'receivable is a loan to the customer');
-  } else {
-    check(true, 'credit button unavailable (trust too low)');
-  }
-
-  console.log('\n— barter —');
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.spawnCustomer('ong_nam', 'salt', 1);
-  ui.renderTrade();
-  await sleep(5);
-  const barterBtn = $('[data-action="trade-barter"]') as HTMLButtonElement | null;
-  if (barterBtn && !barterBtn.disabled) {
-    const potatoes0 = game.world.townStock('corn');
-    click('[data-action="trade-barter"]');
-    await sleep(10);
-    check(game.world.townStock('corn') > potatoes0, 'barter brings goods into stock');
-  } else {
-    check(true, 'barter unavailable for this customer');
-  }
-
-  console.log('\n— refuse —');
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.spawnCustomer('cau_ti', 'banana', 1);
-  ui.renderTrade();
-  await sleep(5);
-  click('[data-action="trade-refuse"]');
-  await sleep(10);
-  check(game.world.activeCustomer() === null, 'refusing clears the customer');
-
-  console.log('\n— substitute —');
-  game.world.state.customers = [];
-  game.world.state.activeCustomer = null;
-  game.world.spawnCustomer('ong_chin', 'antique', 1); // not stocked
-  ui.renderTrade();
-  await sleep(5);
-  check($('[data-action="trade-substitute"]') !== null, 'substitute buttons offered when out of stock');
-  click('[data-action="trade-substitute"]');
-  await sleep(10);
-  check(trade().message.includes('thay thế'), 'substitute message shown');
-
-  console.log('\n— shop tier & upgrades —');
-  give(3000);
-  game.world.state.player.reputation = 80;
-  game.world.state.player.communityTrust = 80;
-  game.world.state.player.day = 25;
-  game.world.state.story.chapter = 4;
-  ui.openPanel('shop');
-  check(!!$('[data-action="shop-tier"]'), 'shop tier upgrade button rendered');
-  const tierBtn = $('[data-action="shop-tier"]') as HTMLButtonElement | null;
-  const shelvesBefore = game.world.state.shelves.length;
-  if (tierBtn && !tierBtn.disabled) {
-    tierBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    check(game.world.state.shopLevel === 2, 'shop tier upgraded to 2');
-    check(game.world.state.shelves.length >= shelvesBefore + 1, 'a new shelf is added with the tier');
-  } else {
-    check(true, 'tier button disabled (requirements unmet)');
-  }
-  ui.openPanel('shop');
-  const upgradeBtn = $('[data-action="upgrade"]') as HTMLButtonElement | null;
-  check(!!upgradeBtn, 'at least one upgrade is purchasable');
-  if (upgradeBtn) {
-    const upId = upgradeBtn.dataset.id!;
-    const money1 = game.world.state.player.money;
-    upgradeBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    check(game.world.state.upgrades.includes(upId), 'upgrade purchased: ' + upId);
-    check(game.world.state.player.money < money1, 'upgrade costs money');
-  }
-
-  console.log('\n— map travel —');
-  ui.openPanel('map');
-  check($$('.map-card').length === 8, 'map cards rendered (8 locations), got ' + $$('.map-card').length);
-  const travelBtn = $('[data-action="travel"]') as HTMLButtonElement | null;
-  check(!!travelBtn, 'a travel button exists');
-  if (travelBtn) {
-    const before = game.world.state.travel.actionsLeft;
-    travelBtn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    check(game.world.state.travel.actionsLeft === before - 1, 'travelling consumes an action');
-    check(!!$('.loc-hero') || !!$('.modal'), 'location panel opens');
-  }
-
-  console.log('\n— confirm dialog & discard —');
-  {
-    ui.openPanel('inventory');
-    const slot = $('.inv-grid .slot[data-uid]') as HTMLElement | null;
-    check(!!slot, 'inventory has a selectable stack');
-    slot?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    const before = game.world.state.inventory.length;
-    const discard = $('[data-action="discard"]') as HTMLElement | null;
-    check(!!discard, 'discard action available');
-    discard?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    check(!!$('.confirm-box'), 'discard asks for confirmation');
-    click('[data-action="confirm-no"]');
-    await sleep(10);
-    check(game.world.state.inventory.length === before, 'cancelling keeps the item');
-    ui.openPanel('inventory');
-    const slot2 = $('.inv-grid .slot[data-uid]') as HTMLElement | null;
-    slot2?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    const discard2 = $('[data-action="discard"]') as HTMLElement | null;
-    discard2?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await sleep(10);
-    click('[data-action="confirm-yes"]');
-    await sleep(10);
-    check(game.world.state.inventory.length === before - 1, 'confirming discards the stack');
-  }
-
-  console.log('\n— no inline handlers (they swallow delegated clicks) —');
-  {
-    const fs = await import('node:fs');
-    const files = ['src/game/ui.ts', 'src/game/panels.ts', 'src/game/game.ts', 'index.html'];
-    // HTML attribute form only (onfoo="..."), so TS fields like onHide don't match
-    const offenders = files.filter((f) => /\son[a-z]+\s*=\s*["']/i.test(fs.readFileSync(f, 'utf8')));
-    check(offenders.length === 0, 'no inline on*= handlers in ' + files.join(', ') + (offenders.length ? ' -> ' + offenders.join(', ') : ''));
-    check(!document.querySelector('#ui [onclick]'), 'no [onclick] in the rendered UI');
-    check(!!document.querySelector('[data-action="modal-surface"]'), 'modal surfaces are marked with a data-action instead');
-  }
-
-  console.log('\n— prices panel stays put when adjusting markup —');
-  {
-    game.ui.openPanel('prices');
-    await sleep(10);
-    const panelName = () => (document.querySelector('.modal h2')?.textContent ?? '');
-    check(panelName().includes('Bảng giá'), 'prices panel opens');
-    const shelfId = Number((document.querySelector('[data-action="markup"]') as HTMLElement)?.dataset.shelf);
-    const sh = game.world.state.shelves.find((x) => x.id === shelfId);
-    const before = sh ? sh.markup : NaN;
-    click('[data-action="markup"][data-delta="0.05"]');
-    await sleep(10);
-    check(panelName().includes('Bảng giá'), 'still on the prices panel after clicking + (was jumping to inventory)');
-    check(!!sh && Math.abs(sh.markup - (before + 0.05)) < 1e-9, 'markup increased by 5%: ' + before + ' -> ' + (sh?.markup ?? NaN));
-    // the filter chips inside the prices panel must filter prices, not switch panels
-    click('[data-action="filter"][data-cat="food"]');
-    await sleep(10);
-    check(panelName().includes('Bảng giá'), 'still on the prices panel after a filter chip');
-    check((game.ui as any).filter === 'food', 'filter applied');
-    click('[data-action="close-modal"]');
-    await sleep(10);
-  }
-
-  console.log('\n— input layer survives stopPropagation —');
-  {
-    // simulate the worst case: something inside the modal swallows the click
-    game.openInventory ? game.openInventory() : (game.ui as any).openInventory();
-    await sleep(10);
-    const modalEl = document.querySelector('.modal') as HTMLElement | null;
-    check(!!modalEl, 'inventory modal open for the propagation test');
-    modalEl?.setAttribute('onclick', 'event.stopPropagation()');
-    click('[data-action="filter"][data-cat="household"]');
-    await sleep(10);
-    check((game.ui as any).filter === 'household', 'filter chip still works with a click-swallowing ancestor');
-    const again = document.querySelector('.modal') as HTMLElement | null;
-    again?.setAttribute('onclick', 'event.stopPropagation()');
-    click('[data-action="close-modal"]');
-    await sleep(10);
-    check(!document.querySelector('.modal'), 'close button still works with a click-swallowing ancestor');
-  }
-
-  console.log('\n— title: panels, continue, autosave —');
-  {
-    // an autosave must exist as soon as a day has started, so the player can
-    // always come back to a run they already began
-    game.toTitle();
-    await sleep(10);
-    check(!!$('[data-action="continue"]'), 'title offers "Tiếp tục" once a run exists');
-    const cont = $('[data-action="continue"]') as HTMLButtonElement | null;
-    check(!!cont && !cont.disabled, '"Tiếp tục" is enabled when a save exists');
-
-    // opening a panel from the title used to wipe the title screen for good
-    click('[data-action="open-panel"][data-panel="settings"]');
-    await sleep(10);
-    check(!!$('.modal'), 'settings panel opens from the title');
-    click('[data-action="close-modal"]');
-    await sleep(10);
-    check(!!$('.title-screen'), 'title screen comes back after closing a panel');
-    check(!!$('[data-action="new-game-screen"]'), '"Chơi mới" is clickable again after closing a panel');
-    check((document.getElementById('modal-root') as HTMLElement).style.display !== 'none', 'modal-root is visible on the title');
-
-    // and the continue button actually loads the run
-    click('[data-action="continue"]');
-    await sleep(20);
-    check(game.screen === 'playing', 'continue loads the autosave');
-    check(game.world.state.player.day >= 1, 'loaded run is on a real day: ' + game.world.state.player.day);
-  }
-
-  console.log('\n— ending —');
-  game.world.state.player.day = 30;
-  game.world.state.story.chapter = 5;
-  game.world.state.totals.revenue = 1200;
-  game.afterReport();
-  await sleep(10);
-  check(!!$('[data-action="event-choice"]'), 'finale event appears on day 30');
-  const fin = $('[data-action="event-choice"]') as HTMLElement | null;
-  fin?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-  await sleep(10);
-  check(!!$('.ending'), 'ending screen renders');
-  check(!!game.world.state.ending, 'an ending is recorded: ' + (game.world.state.ending?.id ?? 'none'));
-  check(($('.ending')?.textContent ?? '').length > 200, 'ending has narrative text');
-  game.destroy();
-  console.log('\n' + (failures.length ? `${failures.length} FAILURE(S)` : 'All DOM checks passed.'));
-  if (failures.length) { console.log(failures.join('\n')); process.exit(1); }
+  console.log('\n✓ Tất cả kiểm thử DOM / UI đều đạt.');
+  process.exit(0);
 }
 
-main().catch((e) => { console.error('FATAL', e); process.exit(1); });
+main().catch((e) => { console.error(e); process.exit(1); });

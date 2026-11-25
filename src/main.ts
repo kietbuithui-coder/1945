@@ -1,27 +1,25 @@
+// ── main.ts · bootstrap ─────────────────────────────────────────────────────
+import '@fontsource/be-vietnam-pro/400.css';
+import '@fontsource/be-vietnam-pro/600.css';
+import '@fontsource/be-vietnam-pro/700.css';
 import './style.css';
 import { Game } from './game/game';
-import { audio } from './game/audio';
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement | null;
-if (!canvas) throw new Error('Missing #scene canvas');
+const root = document.getElementById('ui') as HTMLElement | null;
+if (!canvas || !root) throw new Error('Thiếu #scene hoặc #ui');
 
-const game = new Game(canvas);
-(window as unknown as { __game: Game }).__game = game;
+const game = new Game(canvas, root);
+(globalThis as unknown as { __game: Game }).__game = game;
 
-// ------------------------------------------------------------- stage scale --
-const stage = document.getElementById('stage') as HTMLElement | null;
+// Scale nguyên vẹn khung 1280×720, giữ pixel sắc nét, không méo ảnh.
+const stage = document.getElementById('stage') as HTMLElement;
 function fit(): void {
-  if (!stage) return;
   const s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
-  stage.style.transform = `scale(${s})`;
+  stage.style.transform = `translate(-50%, -50%) scale(${s})`;
 }
 window.addEventListener('resize', fit);
 window.addEventListener('orientationchange', fit);
 fit();
 
-// ------------------------------------------------------------------ audio ---
-const unlock = () => { audio.resume(); };
-window.addEventListener('pointerdown', unlock, { once: true });
-window.addEventListener('keydown', unlock, { once: true });
-
-game.boot();
+void game.boot();

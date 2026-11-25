@@ -1,323 +1,269 @@
-// Canvas scene renderer: layered pixel-art diorama, weather, VFX.
-import type { World } from './systems';
-import type { Customer, Weather } from './types';
+// ── scene.ts · khung cảnh pixel art: nền, ánh sáng, thời tiết, nâng cấp ──────
+import {
+  A, BG_FOR_LEVEL, LOCATION, timePlate, weatherPlate,
+} from './data';
+import type { Customer, World } from './types';
 
 type Img = HTMLImageElement;
-
-export interface Floater { text: string; x: number; y: number; t: number; color: string; size: number; }
-interface RainDrop { x: number; y: number; v: number; len: number; }
-interface Mote { x: number; y: number; vx: number; vy: number; a: number; }
-
 const cache = new Map<string, Img>();
 
 export function loadImage(url: string): Promise<Img> {
   return new Promise((resolve) => {
-    const cached = cache.get(url);
-    if (cached) { resolve(cached); return; }
+    const hit = cache.get(url);
+    if (hit) { resolve(hit); return; }
+    if (typeof Image === 'undefined') { resolve({ naturalWidth: 0 } as Img); return; }
     const img = new Image();
     img.onload = () => { cache.set(url, img); resolve(img); };
-    img.onerror = () => resolve(img);
+    img.onerror = () => { cache.set(url, img); resolve(img); };
     img.src = url;
   });
 }
-
 export async function preload(urls: string[], onProgress?: (done: number, total: number) => void): Promise<void> {
   let done = 0;
-  await Promise.all(urls.map(async (u) => {
-    await loadImage(u);
-    done++;
-    onProgress?.(done, urls.length);
-  }));
+  await Promise.all(urls.map(async (u) => { await loadImage(u); done++; onProgress?.(done, urls.length); }));
 }
+const img = (url: string): Img | null => {
+  const i = cache.get(url);
+  return i && i.naturalWidth > 0 ? i : null;
+};
 
-/** The asset pack ships transparent tint plates; the scene multiplies them over
- *  the background so time of day and weather are data, not hard-coded colours. */
-function timePlate(h: number): string {
-  if (h < 7) return '/assets/backgrounds/overlays/dawn.png';
-  if (h < 9) return '/assets/backgrounds/overlays/morning.png';
-  if (h < 15) return '/assets/backgrounds/overlays/day.png';
-  if (h < 17) return '/assets/backgrounds/overlays/dusk.png';
-  return '/assets/backgrounds/overlays/night.png';
-}
+export interface Floater { text: string; x: number; y: number; t: number; color: string; size: number }
+interface Drop { x: number; y: number; v: number; len: number }
+interface Mote { x: number; y: number; vx: number; vy: number; a: number }
 
-function weatherPlate(w: string): string | null {
-  if (w === 'mua') return '/assets/backgrounds/overlays/rain.png';
-  if (w === 'mua_to') return '/assets/backgrounds/overlays/storm.png';
-  return null;
-}
-
-function bgFor(world: World): string {
-  const loc = world.state.travel.location;
-  const h = world.state.time.hour;
-  const rain = world.state.weather.today === 'mua' || world.state.weather.today === 'mua_to';
-  if (loc === 'shop') {
-    if (rain) return '/assets/backgrounds/shop_rain.png';
-    if (h >= 19) return '/assets/backgrounds/shop_night.png';
-    if (h >= 16) return '/assets/backgrounds/shop_dusk.png';
-    return '/assets/backgrounds/shop.png';
-  }
-  if (loc === 'market') return rain ? '/assets/backgrounds/market_dusk.png' : '/assets/backgrounds/market.png';
-  if (loc === 'river') return rain ? '/assets/backgrounds/river_dock_rain.png' : h >= 18 ? '/assets/backgrounds/river_dock_night.png' : '/assets/backgrounds/river_dock.png';
-  if (loc === 'warehouse') return '/assets/backgrounds/warehouse.png';
-  if (loc === 'residential') return rain ? '/assets/backgrounds/residential_rain.png' : '/assets/backgrounds/residential.png';
-  if (loc === 'tea_stall') return h >= 16 ? '/assets/backgrounds/tea_stall_dusk.png' : '/assets/backgrounds/tea_stall.png';
-  if (loc === 'supplier_house') return '/assets/backgrounds/poor_house.png';
-  if (loc === 'staging') return '/assets/backgrounds/staging.png';
-  return '/assets/backgrounds/shop.png';
+export interface SceneInput {
+  world: World;
+  dt: number;
+  customer: Customer | null;
+  floaters: Floater[];
+  fade: number;
+  titleMode: boolean;
+  trayCount: number;
 }
 
 export class Scene {
   canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-  floaters: Floater[] = [];
-  rain: RainDrop[] = [];
-  motes: Mote[] = [];
-  fade = 0;
-  fadeDir = 0;
-  fadeCb: (() => void) | null = null;
-  lastBg = '';
-  lastBgImg: Img | null = null;
-  titleMode = false;
-  time = 0;
+  ctx: CanvasRenderingContext2D | null = null;
+  private rain: Drop[] = [];
+  private motes: Mote[] = [];
+  private t = 0;
+  private frame = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d')!;
-    this.ctx.imageSmoothingEnabled = false;
-    for (let i = 0; i < 120; i++) {
-      this.rain.push({ x: Math.random() * 1280, y: Math.random() * 720, v: 600 + Math.random() * 500, len: 8 + Math.random() * 14 });
-    }
-    for (let i = 0; i < 40; i++) {
-      this.motes.push({ x: Math.random() * 1280, y: Math.random() * 720, vx: (Math.random() - 0.5) * 6, vy: -2 - Math.random() * 6, a: 0.1 + Math.random() * 0.4 });
-    }
+    try {
+      this.ctx = canvas.getContext('2d');
+      if (this.ctx) this.ctx.imageSmoothingEnabled = false;
+    } catch { this.ctx = null; }
+    for (let i = 0; i < 150; i++) this.rain.push({ x: Math.random() * 1280, y: Math.random() * 720, v: 520 + Math.random() * 620, len: 8 + Math.random() * 16 });
+    for (let i = 0; i < 34; i++) this.motes.push({ x: Math.random() * 1280, y: Math.random() * 720, vx: (Math.random() - 0.5) * 7, vy: -3 - Math.random() * 6, a: 0.08 + Math.random() * 0.35 });
   }
 
-  fadeTo(cb: () => void) {
-    this.fadeDir = 1;
-    this.fadeCb = cb;
+  addFloater(fl: Floater[], text: string, x = 640, y = 330, color = '#f0c86a', size = 26): void {
+    fl.push({ text, x, y, t: 0, color, size });
   }
 
-  addFloat(text: string, x: number, y: number, color = '#f0c86a', size = 22) {
-    this.floaters.push({ text, x, y, t: 0, color, size });
-  }
-
-  private img(url: string): Img | null {
-    return cache.get(url) ?? null;
-  }
-
-  draw(world: World, dt: number) {
-    const ctx = this.ctx;
-    const s = world.state;
-    this.time += dt;
-    const W = 1280, H = 720;
-
-    // background
-    const bgUrl = this.titleMode ? '/assets/backgrounds/title.png' : bgFor(world);
-    if (bgUrl !== this.lastBg) {
-      this.lastBg = bgUrl;
-      const im = this.img(bgUrl);
-      if (im && im.complete && im.naturalWidth > 0) this.lastBgImg = im;
+  private bgUrl(w: World, titleMode: boolean): string {
+    if (titleMode) return A('backgrounds/title.png');
+    const loc = LOCATION[w.location] ?? LOCATION.shop;
+    if (loc.id !== 'shop') {
+      const wet = w.weather === 'rain' || w.weather === 'storm';
+      if (wet && loc.bgRain) return A(`backgrounds/${loc.bgRain}`);
+      if (w.minute >= 960 && loc.bgDusk) return A(`backgrounds/${loc.bgDusk}`);
+      return A(`backgrounds/${loc.bg}`);
     }
-    ctx.imageSmoothingEnabled = false;
-    if (this.lastBgImg) ctx.drawImage(this.lastBgImg, 0, 0, W, H);
-    else { ctx.fillStyle = '#241a12'; ctx.fillRect(0, 0, W, H); }
+    const wet = w.weather === 'rain' || w.weather === 'storm';
+    if (wet) return w.day > 6 ? BG_FOR_LEVEL(w.shopLevel) : A('backgrounds/shop_rain.png');
+    if (w.minute >= 1080) return A('backgrounds/shop_night.png');
+    if (w.minute >= 960) return A('backgrounds/shop_dusk.png');
+    return BG_FOR_LEVEL(w.shopLevel);
+  }
 
-    // the shop itself is rebuilt as it climbs tiers: each tier paints new furniture
-    if (s.travel.location === 'shop' && (s.shopLevel ?? 1) > 1) {
-      const im = this.img(`/assets/backgrounds/shop_level${Math.min(5, s.shopLevel)}.png`);
-      if (im && im.complete && im.naturalWidth > 0) ctx.drawImage(im, 0, 0, W, H);
+  private drawPlate(i: SceneInput, url: string, alpha: number, mode: GlobalCompositeOperation = 'multiply'): void {
+    const c = this.ctx, im = img(url);
+    if (!c || !im) return;
+    c.save();
+    c.globalCompositeOperation = mode;
+    c.globalAlpha = alpha;
+    c.drawImage(im, 0, 0, 1280, 720);
+    c.restore();
+  }
+
+  /** Các nâng cấp phải NHÌN THẤY, không chỉ đổi chỉ số ẩn. */
+  private drawUpgrades(c: CanvasRenderingContext2D, w: World): void {
+    const up = new Set(w.upgrades);
+    c.save();
+    c.imageSmoothingEnabled = false;
+    if (up.has('window')) {
+      c.fillStyle = 'rgba(255,223,154,0.14)';
+      c.beginPath(); c.moveTo(60, 0); c.lineTo(360, 0); c.lineTo(250, 470); c.lineTo(60, 470); c.closePath(); c.fill();
     }
-
-    // customers
-    const active = world.activeCustomer();
-    const queue = world.queuedCustomers();
-    for (const c of queue) this.drawCustomer(c, 0.7, world);
-    if (active) this.drawCustomer(active, 1, world);
-
-    // lamp glow
-    const h = s.time.hour;
-    const lampStrength = h >= 16 || h < 7 ? 0.5 : 0.28;
-    const glow = ctx.createRadialGradient(640, 96, 10, 640, 96, 320);
-    glow.addColorStop(0, `rgba(255,214,138,${lampStrength})`);
-    glow.addColorStop(0.35, `rgba(255,184,77,${lampStrength * 0.4})`);
-    glow.addColorStop(1, 'rgba(255,184,77,0)');
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'source-over';
-
-    // dust motes
-    if (s.weather.today !== 'mua' && s.weather.today !== 'mua_to') {
-      for (const m of this.motes) {
-        m.x += m.vx * dt; m.y += m.vy * dt;
-        if (m.y < -10) { m.y = 730; m.x = Math.random() * 1280; }
-        if (m.x < -10) m.x = 1290; if (m.x > 1290) m.x = -10;
-        const tw = 0.4 + 0.6 * Math.sin(this.time * 2 + m.x * 0.01);
-        ctx.fillStyle = `rgba(255,230,168,${m.a * tw * 0.6})`;
-        ctx.fillRect(m.x, m.y, 2, 2);
+    if (up.has('roof')) {
+      c.fillStyle = 'rgba(36,23,17,0.20)';
+      c.fillRect(0, 0, 1280, 62);
+      c.fillStyle = '#3b2718';
+      for (let x = 0; x < 1280; x += 64) c.fillRect(x, 52, 56, 10);
+    }
+    if (up.has('shelves')) {
+      c.fillStyle = '#3b2718'; c.fillRect(90, 300, 300, 16);
+      c.fillStyle = '#5a3d24'; c.fillRect(90, 300, 300, 6);
+      c.fillStyle = '#241711'; c.fillRect(120, 316, 12, 150); c.fillRect(350, 316, 12, 150);
+    }
+    if (up.has('crates') || up.has('warehouse')) {
+      for (let k = 0; k < 3; k++) {
+        const x = 1000 + k * 76, y = 430 + (k % 2) * 20;
+        c.fillStyle = '#5a3d24'; c.fillRect(x, y, 66, 66);
+        c.strokeStyle = '#3b2718'; c.lineWidth = 4; c.strokeRect(x, y, 66, 66);
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x + 66, y + 66); c.stroke();
       }
     }
+    if (up.has('sign')) {
+      c.fillStyle = '#5a3d24'; c.fillRect(500, 24, 280, 62);
+      c.strokeStyle = '#9a6d40'; c.lineWidth = 5; c.strokeRect(500, 24, 280, 62);
+      c.fillStyle = '#e6d3a3';
+      for (let k = 0; k < 5; k++) c.fillRect(528 + k * 48, 42 + (k % 2) * 8, 30, 6);
+    }
+    if (up.has('counter')) {
+      c.fillStyle = 'rgba(154,109,64,0.55)'; c.fillRect(400, 520, 480, 12);
+    }
+    if (up.has('scale')) {
+      c.fillStyle = '#d9a441'; c.fillRect(1010, 470, 44, 8);
+      c.fillRect(1028, 478, 8, 34);
+      c.beginPath(); c.arc(1014, 466, 12, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(1050, 466, 12, 0, Math.PI * 2); c.fill();
+    }
+    if (up.has('ledger')) {
+      c.fillStyle = '#e6d3a3'; c.fillRect(940, 500, 90, 52);
+      c.strokeStyle = '#8a4630'; c.lineWidth = 3; c.strokeRect(940, 500, 90, 52);
+    }
+    if (up.has('cellar')) {
+      c.fillStyle = '#241711'; c.fillRect(150, 560, 180, 80);
+      c.strokeStyle = '#9a6d40'; c.lineWidth = 4; c.strokeRect(150, 560, 180, 80);
+    }
+    c.restore();
+  }
 
-    // rain
-    if (s.weather.today === 'mua' || s.weather.today === 'mua_to') {
-      const heavy = s.weather.today === 'mua_to';
-      ctx.strokeStyle = heavy ? 'rgba(190,210,215,0.42)' : 'rgba(190,210,215,0.28)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
+  private drawCustomer(c: CanvasRenderingContext2D, cust: Customer | null, w: World): void {
+    if (!cust) return;
+    const frames: Record<string, string> = {
+      happy: 'front_happy', sad: 'front_sad', angry: 'front_angry',
+      surprised: 'front_surprised', tired: 'front_tired', neutral: 'front_talk',
+    };
+    const f = frames[cust.mood] ?? 'front_idle_0';
+    const im = img(A(`characters/${cust.sprite}/${f}.png`)) ?? img(A(`characters/${cust.sprite}/front_idle_0.png`));
+    if (im) {
+      c.save();
+      c.imageSmoothingEnabled = false;
+      c.drawImage(im, 742, 208, 96, 128);
+      c.restore();
+    } else {
+      // fallback không phải placeholder ảnh: vẽ bóng người bằng chính palette của pack
+      c.fillStyle = '#3c4a58';
+      c.fillRect(770, 250, 40, 80);
+      c.fillStyle = '#e9b98f';
+      c.beginPath(); c.arc(790, 240, 18, 0, Math.PI * 2); c.fill();
+    }
+    // bóng chân
+    c.fillStyle = 'rgba(36,23,17,0.28)';
+    c.beginPath(); c.ellipse(790, 338, 42, 10, 0, 0, Math.PI * 2); c.fill();
+    // khách đang xếp hàng phía sau (có thật trong state)
+    const line = w.queue.filter((q) => q.state === 'waiting' && q.arrive <= w.minute).slice(1, 3);
+    line.forEach((q, i) => {
+      const back = img(A(`characters/${q.sprite}/back_walk_0.png`));
+      const x = 950 + i * 70, y = 250 + i * 16;
+      if (back) { c.globalAlpha = 0.75; c.drawImage(back, x, y, 72, 96); c.globalAlpha = 1; }
+      else { c.fillStyle = 'rgba(60,74,88,0.7)'; c.fillRect(x + 12, y + 16, 34, 66); }
+    });
+  }
+
+  private drawWeather(c: CanvasRenderingContext2D, w: World, dt: number): void {
+    const storm = w.weather === 'storm', rain = w.weather === 'rain' || storm;
+    if (rain && !w.settings.reduced) {
+      c.save();
+      c.strokeStyle = storm ? 'rgba(200,215,225,0.5)' : 'rgba(190,210,220,0.32)';
+      c.lineWidth = storm ? 2 : 1;
       for (const d of this.rain) {
-        d.y += d.v * dt * (heavy ? 1.35 : 1);
-        d.x -= d.v * dt * 0.18;
+        d.y += d.v * dt; d.x -= (storm ? 150 : 60) * dt;
         if (d.y > 720) { d.y = -20; d.x = Math.random() * 1400; }
         if (d.x < -20) d.x = 1300;
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x + 2, d.y + d.len);
+        c.beginPath(); c.moveTo(d.x, d.y); c.lineTo(d.x - (storm ? 8 : 3), d.y + d.len); c.stroke();
       }
-      ctx.stroke();
+      c.restore();
     }
+    if (!w.settings.reduced) {
+      for (const m of this.motes) {
+        m.x += m.vx * dt; m.y += m.vy * dt;
+        if (m.y < 0) { m.y = 720; m.x = Math.random() * 1280; }
+        c.fillStyle = `rgba(255,223,154,${m.a})`;
+        c.fillRect(m.x, m.y, 2, 2);
+      }
+    }
+    // Đèn dầu: một nguồn sáng duy nhất, đúng art bible
+    const night = w.minute >= 960 || w.weather === 'storm';
+    if (night || w.upgrades.includes('lamp')) {
+      const glow = img(A('effects/glow.png'));
+      const g = c.createRadialGradient(690, 210, 10, 690, 210, w.upgrades.includes('lamp') ? 460 : 320);
+      g.addColorStop(0, 'rgba(255,223,154,0.20)');
+      g.addColorStop(1, 'rgba(255,223,154,0)');
+      c.fillStyle = g; c.fillRect(0, 0, 1280, 720);
+      if (glow) { c.globalAlpha = 0.35; c.drawImage(glow, 630, 150, 120, 120); c.globalAlpha = 1; }
+    }
+  }
 
-    // time-of-day and weather tint plates (from the asset pack)
-    const plateUrl = timePlate(h);
-    const plate = this.img(plateUrl);
-    ctx.globalCompositeOperation = 'multiply';
-    if (plate && plate.complete && plate.naturalWidth > 0) {
-      ctx.drawImage(plate, 0, 0, W, H);
-    } else {
-      // fallback: the same tints, painted by hand
-      let tint = 'rgba(28,38,80,0.38)';
-      if (h < 7) tint = 'rgba(24,36,72,0.42)';
-      else if (h < 9) tint = 'rgba(255,214,150,0.06)';
-      else if (h < 15) tint = 'rgba(255,236,190,0.03)';
-      else if (h < 17) tint = 'rgba(255,170,90,0.14)';
-      ctx.fillStyle = tint;
-      ctx.fillRect(0, 0, W, H);
+  draw(i: SceneInput): void {
+    const c = this.ctx;
+    if (!c) return;
+    const { world: w, dt } = i;
+    this.t += dt;
+    this.frame++;
+    c.imageSmoothingEnabled = false;
+    c.clearRect(0, 0, 1280, 720);
+    c.fillStyle = '#241711'; c.fillRect(0, 0, 1280, 720);
+
+    const bg = img(this.bgUrl(w, i.titleMode));
+    if (bg) c.drawImage(bg, 0, 0, 1280, 720);
+    else {
+      // nền dự phòng vẫn là màu của pack, không phải màn đen trống
+      c.fillStyle = '#3b2718'; c.fillRect(0, 0, 1280, 420);
+      c.fillStyle = '#5a3d24'; c.fillRect(0, 420, 1280, 300);
     }
-    const wp = weatherPlate(s.weather.today);
-    if (wp) {
-      const wplate = this.img(wp);
-      if (wplate && wplate.complete && wplate.naturalWidth > 0) ctx.drawImage(wplate, 0, 0, W, H);
-    }
-    // warm pool of lamplight — additive, only after dark or under a storm
-    ctx.globalCompositeOperation = 'lighter';
-    if (h >= 17 || h < 7 || s.weather.today === 'mua_to') {
-      const glow = this.img('/assets/backgrounds/overlays/lamp_glow.png');
-      if (glow && glow.complete && glow.naturalWidth > 0) ctx.drawImage(glow, 0, 0, W, H);
-    }
-    ctx.globalCompositeOperation = 'source-over';
+    this.drawPlate(i, timePlate(w.minute), w.minute >= 1020 ? 0.85 : 0.55);
+    const wp = weatherPlate(w.weather);
+    if (wp) this.drawPlate(i, wp, w.weather === 'storm' ? 0.7 : 0.42);
+    if (!i.titleMode) this.drawUpgrades(c, w);
+    this.drawWeather(c, w, dt);
+    if (!i.titleMode) this.drawCustomer(c, i.customer, w);
 
     // vignette
-    const vg = ctx.createRadialGradient(640, 380, 260, 640, 380, 760);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(10,6,3,0.55)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, W, H);
+    const v = c.createRadialGradient(640, 360, 260, 640, 360, 820);
+    v.addColorStop(0, 'rgba(36,23,17,0)');
+    v.addColorStop(1, 'rgba(36,23,17,0.55)');
+    c.fillStyle = v; c.fillRect(0, 0, 1280, 720);
+
+    // khay quầy có hàng → phản hồi trực quan ngay trên nền
+    if (i.trayCount > 0 && !i.titleMode) {
+      c.fillStyle = 'rgba(255,223,154,0.10)';
+      c.fillRect(430, 470, 420, 90);
+      c.strokeStyle = 'rgba(217,164,65,0.5)'; c.lineWidth = 3;
+      c.strokeRect(430, 470, 420, 90);
+    }
 
     // floaters
-    for (const f of this.floaters) {
+    for (let k = i.floaters.length - 1; k >= 0; k--) {
+      const f = i.floaters[k];
       f.t += dt;
-      const p = f.t / 1.3;
-      if (p >= 1) continue;
-      ctx.globalAlpha = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
-      ctx.font = `700 ${f.size}px "Be Vietnam Pro", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(20,10,4,0.8)';
-      ctx.strokeText(f.text, f.x, f.y - p * 70);
-      ctx.fillStyle = f.color;
-      ctx.fillText(f.text, f.x, f.y - p * 70);
-      ctx.globalAlpha = 1;
+      c.globalAlpha = Math.max(0, 1 - f.t / 1.6);
+      c.fillStyle = f.color;
+      c.font = `bold ${f.size}px "Be Vietnam Pro", system-ui, sans-serif`;
+      c.textAlign = 'center';
+      c.fillText(f.text, f.x, f.y - f.t * 42);
+      c.globalAlpha = 1;
+      if (f.t > 1.6) i.floaters.splice(k, 1);
     }
-    this.floaters = this.floaters.filter((f) => f.t < 1.3);
 
-    // fade
-    if (this.fadeDir !== 0) {
-      this.fade += this.fadeDir * dt * 2.4;
-      if (this.fade >= 1) {
-        this.fade = 1;
-        this.fadeDir = -1;
-        this.fadeCb?.();
-        this.fadeCb = null;
-      }
-      if (this.fade <= 0 && this.fadeDir < 0) { this.fade = 0; this.fadeDir = 0; }
-      ctx.fillStyle = `rgba(8,5,3,${Math.max(0, this.fade)})`;
-      ctx.fillRect(0, 0, W, H);
+    if (i.fade > 0) {
+      c.fillStyle = `rgba(36,23,17,${Math.min(1, i.fade)})`;
+      c.fillRect(0, 0, 1280, 720);
     }
   }
-
-  drawCustomer(c: Customer, alpha: number, world: World) {
-    const ctx = this.ctx;
-    const x = Math.round(c.x);
-    const feet = 626;
-    const mood = c.mood === 'neutral' ? 'idle_0' : c.mood;
-    const url = `/assets/characters/${c.npcId}/front_${mood}.png`;
-    const img = this.img(url);
-    ctx.globalAlpha = alpha;
-    // shadow
-    ctx.fillStyle = 'rgba(10,6,3,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(x, feet - 4, 34, 9, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (img && img.complete && img.naturalWidth > 0) {
-      const bob = Math.sin(this.time * 2 + c.uid) * 1.5;
-      ctx.drawImage(img, x - 48, feet - 128 + bob, 96, 128);
-    } else {
-      ctx.fillStyle = '#5a3d24';
-      ctx.fillRect(x - 24, feet - 96, 48, 96);
-    }
-    // patience bar
-    if (c.state === 'active') {
-      const w = 90;
-      const p = Math.max(0, c.patience / c.maxPatience);
-      ctx.fillStyle = 'rgba(10,6,3,0.7)';
-      ctx.fillRect(x - w / 2, feet - 146, w, 6);
-      ctx.fillStyle = p > 0.5 ? '#8aa357' : p > 0.25 ? '#c47a22' : '#a83226';
-      ctx.fillRect(x - w / 2 + 1, feet - 145, (w - 2) * p, 4);
-    }
-    // name
-    ctx.font = '600 13px "Be Vietnam Pro", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(15,9,4,0.9)';
-    ctx.strokeText(c.name, x, feet - 152);
-    ctx.fillStyle = 'rgba(240,226,189,0.9)';
-    ctx.fillText(c.name, x, feet - 152);
-    ctx.globalAlpha = 1;
-  }
-}
-
-/** Sprites are streamed after the first screen; everything the title and the shop
- *  need is preloaded behind the loading bar. */
-export function splitAssetUrls(): { critical: string[]; rest: string[] } {
-  const all = allAssetUrls();
-  const isSprite = (u: string) => /\/assets\/characters\/(?!portraits\/)[^/]+\//.test(u);
-  return { critical: all.filter((u) => !isSprite(u)), rest: all.filter(isSprite) };
-}
-
-export function allAssetUrls(): string[] {
-  const urls: string[] = [];
-  const scenes = [
-    'shop', 'shop_dusk', 'shop_night', 'shop_rain', 'market', 'market_dusk', 'river_dock',
-    'river_dock_night', 'river_dock_rain', 'warehouse', 'residential', 'residential_rain',
-    'tea_stall', 'tea_stall_dusk', 'poor_house', 'staging', 'shop_level2', 'shop_level3',
-    'shop_level4', 'shop_level5', 'title', 'street', 'street_rain', 'alley', 'alley_rain',
-    'counter_outside', 'counter_outside_night', 'shop_exterior', 'shop_exterior_night',
-    'shop_exterior_rain',
-  ];
-  for (const s of scenes) urls.push(`/assets/backgrounds/${s}.png`);
-  for (const o of ['dawn', 'morning', 'day', 'dusk', 'night', 'rain', 'storm', 'lamp_glow']) {
-    urls.push(`/assets/backgrounds/overlays/${o}.png`);
-  }
-  const chars = [
-    'player', 'ba_tu', 'ong_nam', 'chi_lan', 'anh_khoi', 'co_hoa', 'ong_to', 'ba_cuc', 'anh_phuc',
-    'co_diep', 'ong_giao_minh', 'ba_hau', 'anh_vuong', 'co_man', 'bac_hung', 'chi_sen', 'ong_ca',
-    'co_tuyet', 'anh_tam', 'ba_giao', 'cau_ti', 'ong_chin', 'ba_tam', 'co_mai',
-  ];
-  for (const c of chars) {
-    for (const f of ['front_idle_0', 'front_happy', 'front_sad', 'front_angry', 'front_surprised', 'front_tired', 'side_walk_0', 'back_walk_0']) {
-      urls.push(`/assets/characters/${c}/${f}.png`);
-    }
-    for (const e of ['neutral', 'happy', 'sad', 'angry', 'surprised', 'tired']) {
-      urls.push(`/assets/characters/portraits/${c}_${e}.png`);
-    }
-  }
-  return urls;
 }

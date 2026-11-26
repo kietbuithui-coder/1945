@@ -157,6 +157,7 @@ async function main(): Promise<void> {
   check(!!$('[data-act="newgame"]'), 'có nút ván mới');
   check(!$('[data-act="continue"]'), 'chưa có save → không hiện Tiếp ván');
   check($('#loading')?.innerHTML === '', 'loading biến mất sau preload');
+  check(win.getComputedStyle($('#loading')!).display === 'none', 'loading overlay không còn che UI');
   check($$('img').length > 0, 'HUD dùng ảnh asset pack thật');
 
   win.dispatchEvent(new dom.window.MouseEvent('pointerdown', { bubbles: true }));

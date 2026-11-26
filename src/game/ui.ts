@@ -134,6 +134,7 @@ export class UI {
     this.el('modal').innerHTML = this.paintModal();
     this.el('title').innerHTML = this.titleMode ? this.title(w) : '';
     this.el('loading').innerHTML = this.loading ? this.loadingScreen() : '';
+    this.el('loading').style.display = this.loading ? 'flex' : 'none';
     this.el('ghost').innerHTML = '';
     this.ghost = null;
     this.paintToasts();
